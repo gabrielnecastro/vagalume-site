@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Vagalume — find your next job</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <section class="card hero-search">
+      <div class="hero-search-top">
+        <div class="hero-search-spacer" aria-hidden="true"></div>
+        <div class="hero-search-heading">
+          <img src="/img/logo-icon.png" alt="Vagalume" class="hero-logo-icon" />
+          <h1>Find the right job for you.</h1>
+          <p class="lead">Jobs in technology, healthcare, education, construction, and more. No fuss.</p>
+        </div>
+      </div>
+
+      <div class="mt-16">
+        <input type="search" id="search-input" placeholder="Job title, company, keyword..." data-testid="search-input" />
+      </div>
+
+      <div class="pill-row filters-row mt-8">
+        <select id="area-filter" data-testid="area-filter"><option value="">All areas</option></select>
+        <select id="seniority-filter" data-testid="seniority-filter">
+          <option value="">All levels</option>
+          <option value="Intern">Intern</option>
+          <option value="Junior">Junior</option>
+          <option value="Mid-level">Mid-level</option>
+          <option value="Senior">Senior</option>
+        </select>
+        <select id="workmodel-filter" data-testid="workmodel-filter">
+          <option value="">All work models</option>
+          <option value="Remote">Remote</option>
+          <option value="Hybrid">Hybrid</option>
+          <option value="On-site">On-site</option>
+        </select>
+        <select id="sort-filter" data-testid="sort-filter">
+          <option value="id-desc">Most recent</option>
+          <option value="title-asc">Title (A-Z)</option>
+        </select>
+      </div>
+    </section>
+
+    <p class="muted mt-8" id="results-count" data-testid="results-count"></p>
+
+    <div class="job-list mt-8" id="job-list" data-testid="job-list"></div>
+    <p id="empty-state" class="muted hidden" data-testid="empty-state">No jobs found with these filters.</p>
+    <p id="scroll-loading" class="muted hidden mt-16"><span class="spinner"></span> loading more jobs...</p>
+    <div id="scroll-sentinel" style="height:1px"></div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    let page = 1;
+    const limit = 6;
+    let loading = false;
+    let exhausted = false;
+    let currentUser = null;
+    let appliedIds = new Set();
+
+    async function loadMe() {
+      const { ok, body } = await QA.api("/api/auth/me");
+      if (ok) currentUser = body.data;
+    }
+
+    document.getElementById("search-input").value = params.get("q") || "";
+
+    const AREAS = ["Technology", "Procurement", "Operations", "Finance", "Consulting", "Human Resources", "Design", "Marketing", "Logistics", "Healthcare", "Customer Service", "Education", "Engineering"];
+    const areaSelect = document.getElementById("area-filter");
+    AREAS.forEach((a) => { const o = document.createElement("option"); o.value = a; o.textContent = a; areaSelect.appendChild(o); });
+
+    function currentSort() {
+      const [sort, order] = document.getElementById("sort-filter").value.split("-");
+      return { sort, order };
+    }
+
+    function jobCard(j) {
+      const a = document.createElement("a");
+      a.className = "job-card";
+      a.href = `/pages/vaga.html?id=${j.id}`;
+      a.dataset.testid = "job-card";
+      const isEmployer = currentUser && currentUser.role === "employer";
+      a.innerHTML = `
+        <img class="logo" src="${Store.escapeHtml(j.company ? j.company.logo : "/img/logos/default.svg")}" alt="${Store.escapeHtml(j.company ? j.company.name : "")}" loading="lazy" />
+        <div style="flex:1">
+          <div class="title">${Store.escapeHtml(j.title)}</div>
+          <div class="company-name">${Store.escapeHtml(j.company ? j.company.name : "")} · ${Store.escapeHtml(j.city)}</div>
+          <div class="tags">
+            <span>${Store.escapeHtml(j.seniority)}</span>
+            <span>${Store.escapeHtml(j.contractType)}</span>
+            <span>${Store.escapeHtml(j.workModel)}</span>
+          </div>
+        </div>
+        <div class="job-card-actions">
+          <div class="salary">${Store.escapeHtml(j.salary)}</div>
+          ${isEmployer ? "" : `
+          <div class="job-card-actions-row">
+            <button type="button" class="btn-apply-quick" data-testid="apply-quick-btn" data-job-id="${j.id}">Apply now</button>
+            <button type="button" class="btn-save-job" data-testid="save-job-btn" data-job-id="${j.id}" aria-pressed="${Store.isJobSaved(j.id)}" title="Save job">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>`}
+        </div>`;
+
+      const applyBtn = a.querySelector(".btn-apply-quick");
+      // N-10 (10/17/2026): show the applied state as soon as the card loads
+      if (applyBtn && appliedIds.has(j.id)) {
+        applyBtn.textContent = "Already applied";
+        applyBtn.disabled = true;
+      }
+      if (applyBtn) {
+        applyBtn.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (!currentUser) {
+            // N-11 (10/17/2026): the sign-in page shows the message, so the visitor can read it
+            location.href = "/pages/entrar.html?reason=apply";
+            return;
+          }
+          if (currentUser.role !== "candidate") {
+            Store.toast("Only candidate accounts can apply", "err");
+            return;
+          }
+          applyBtn.disabled = true;
+          const { ok, status, body } = await QA.api(`/api/jobs/${j.id}/apply`, { method: "POST" });
+          if (ok) {
+            applyBtn.textContent = "Applied ✅";
+            Store.toast("Application sent successfully!");
+          } else if (status === 409 && body && body.error === "job_closed") {
+            // the job was closed after the page loaded: it is not "already applied"
+            applyBtn.textContent = "Job closed";
+            Store.toast(body.message, "err");
+          } else if (status === 409) {
+            applyBtn.textContent = "Already applied";
+          } else {
+            applyBtn.disabled = false;
+            Store.toast(body && body.message ? body.message : "Couldn't send the application", "err");
+          }
+        });
+      }
+
+      const saveBtn = a.querySelector(".btn-save-job");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const nowSaved = Store.toggleSavedJob(j.id, { title: j.title, company: j.company ? j.company.name : "" });
+          saveBtn.setAttribute("aria-pressed", String(nowSaved));
+          Store.toast(nowSaved ? "Job saved" : "Job removed from saved");
+        });
+      }
+
+      return a;
+    }
+
+    async function loadPage(reset) {
+      if (loading || (exhausted && !reset)) return;
+      loading = true;
+      if (reset) { page = 1; exhausted = false; document.getElementById("job-list").innerHTML = ""; }
+      document.getElementById("scroll-loading").classList.remove("hidden");
+
+      const { sort, order } = currentSort();
+      const query = new URLSearchParams({ page, limit, sort, order });
+      const q = document.getElementById("search-input").value.trim();
+      const area = document.getElementById("area-filter").value;
+      const seniority = document.getElementById("seniority-filter").value;
+      const workModel = document.getElementById("workmodel-filter").value;
+      if (q) query.set("q", q);
+      if (area) query.set("area", area);
+      if (seniority) query.set("seniority", seniority);
+      if (workModel) query.set("workModel", workModel);
+
+      const { body } = await QA.api(`/api/jobs?${query}`);
+      const list = document.getElementById("job-list");
+      body.data.forEach((j) => list.appendChild(jobCard(j)));
+
+      document.getElementById("results-count").textContent = `${body.meta.total} job(s) found`;
+      document.getElementById("empty-state").classList.toggle("hidden", body.meta.total > 0);
+      exhausted = page >= body.meta.totalPages;
+      page += 1;
+      loading = false;
+      document.getElementById("scroll-loading").classList.add("hidden");
+    }
+
+    let debounceTimer;
+    function reload() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadPage(true), 250);
+    }
+    ["search-input"].forEach((id) => document.getElementById(id).addEventListener("input", reload));
+    ["area-filter", "seniority-filter", "workmodel-filter", "sort-filter"].forEach((id) => document.getElementById(id).addEventListener("change", reload));
+
+    const observer = new IntersectionObserver((entries) => { if (entries[0].isIntersecting) loadPage(false); });
+    observer.observe(document.getElementById("scroll-sentinel"));
+
+    (async function initJobsPage() {
+      await loadMe();
+      if (currentUser && currentUser.role === "candidate") appliedIds = await Store.getAppliedJobIds();
+      loadPage(true);
+    })();
+  </script>
+</body>
+</html>

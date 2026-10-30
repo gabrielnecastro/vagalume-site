@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none">
+
+<path d="M150 100 L100 150 L150 200" stroke="#c98a12" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M250 100 L300 150 L250 200" stroke="#c98a12" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M190 90 L210 210" stroke="#c98a12" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+
+</svg>

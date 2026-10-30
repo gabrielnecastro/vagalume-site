@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Cart — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <nav class="breadcrumb"><a href="/">Home</a> / <a href="/pages/cursos.html">Courses</a> / Cart</nav>
+    <h1>Your cart</h1>
+
+    <div id="cart-empty" class="card hidden" data-testid="cart-empty">
+      <p>Your cart is empty. <a href="/pages/cursos.html">Browse courses</a></p>
+    </div>
+
+    <div class="card" id="cart-items-card">
+      <div id="cart-items" data-testid="cart-items"></div>
+    </div>
+
+    <div class="card" id="coupon-card">
+      <h2 style="margin-top:0">Discount coupon</h2>
+      <div class="pill-row">
+        <input type="text" id="coupon-input" placeholder="E.g.: STUDENT10" data-testid="coupon-input" style="max-width:220px" />
+        <button id="coupon-apply" class="secondary" data-testid="coupon-apply">Apply</button>
+      </div>
+      <p id="coupon-result" class="mt-8" data-testid="coupon-result"></p>
+    </div>
+
+    <div class="card" id="totals-card">
+      <p>Subtotal: <strong id="cart-subtotal" data-testid="cart-subtotal">R$ 0.00</strong></p>
+      <p id="discount-line" class="hidden">Discount: <strong id="cart-discount" data-testid="cart-discount"></strong></p>
+      <p>Total: <strong id="cart-total" data-testid="cart-total" style="font-size:1.2rem">R$ 0.00</strong></p>
+      <button id="checkout-btn" data-testid="checkout-button" class="mt-8">Checkout</button>
+      <p class="muted mt-8" id="login-hint" data-testid="login-hint">You need to be logged in to complete your purchase.</p>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    let appliedDiscount = 0;
+    let coursesById = {};
+
+    async function renderCart() {
+      const cart = Store.getCart();
+      document.getElementById("cart-empty").classList.toggle("hidden", cart.length > 0);
+      document.getElementById("cart-items-card").classList.toggle("hidden", cart.length === 0);
+      document.getElementById("coupon-card").classList.toggle("hidden", cart.length === 0);
+      document.getElementById("totals-card").classList.toggle("hidden", cart.length === 0);
+      if (!cart.length) return;
+
+      const container = document.getElementById("cart-items");
+      container.innerHTML = "";
+      let subtotal = 0;
+
+      for (const item of cart) {
+        const { ok, body } = await QA.api(`/api/courses/${item.courseId}`);
+        if (!ok) continue;
+        const c = body.data;
+        coursesById[c.id] = c;
+        subtotal += c.price;
+
+        const row = document.createElement("div");
+        row.className = "drag-card";
+        row.dataset.testid = "cart-item";
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px">
+            <img src="${c.image}" style="width:48px;height:48px;object-fit:contain;background:var(--bg);border-radius:6px;padding:4px" />
+            <div>
+              <div><strong>${c.title}</strong></div>
+              <div class="muted">${c.instructor}</div>
+            </div>
+          </div>
+          <div class="pill-row">
+            <span>${c.price === 0 ? "Free" : `R$ ${c.price.toFixed(2)}`}</span>
+            <button class="secondary" data-remove="${c.id}" data-testid="cart-remove">remove</button>
+          </div>`;
+        container.appendChild(row);
+      }
+
+      container.querySelectorAll("[data-remove]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          Store.removeFromCart(Number(btn.dataset.remove));
+          renderCart();
+        });
+      });
+
+      document.getElementById("cart-subtotal").textContent = `R$ ${subtotal.toFixed(2)}`;
+      const total = subtotal * (1 - appliedDiscount);
+      document.getElementById("cart-total").textContent = `R$ ${total.toFixed(2)}`;
+      if (appliedDiscount > 0) {
+        document.getElementById("discount-line").classList.remove("hidden");
+        document.getElementById("cart-discount").textContent = `- R$ ${(subtotal * appliedDiscount).toFixed(2)}`;
+      } else {
+        document.getElementById("discount-line").classList.add("hidden");
+      }
+    }
+
+    document.getElementById("coupon-apply").addEventListener("click", async () => {
+      const code = document.getElementById("coupon-input").value;
+      const resultEl = document.getElementById("coupon-result");
+      const { status, ok, body } = await QA.api("/api/courses/coupons/apply", { method: "POST", body: JSON.stringify({ code }) });
+      if (ok) {
+        appliedDiscount = body.data.discount;
+        sessionStorage.setItem("vagalume_course_coupon", body.data.code);
+        resultEl.textContent = `Coupon applied: ${(body.data.discount * 100).toFixed(0)}% off`;
+        resultEl.className = "mt-8 badge ok";
+      } else if (status === 429) {
+        resultEl.textContent = body.message;
+        resultEl.className = "mt-8 badge warn";
+      } else {
+        resultEl.textContent = body.message || "Invalid coupon";
+        resultEl.className = "mt-8 badge err";
+      }
+      renderCart();
+    });
+
+    document.getElementById("checkout-btn").addEventListener("click", async () => {
+      if (!Store.getCart().length) return;
+      const { ok } = await QA.api("/api/auth/me");
+      if (!ok) {
+        Store.toast("Log in to complete your purchase", "err");
+        location.href = "/pages/entrar.html";
+        return;
+      }
+      sessionStorage.setItem("vagalume_course_discount", appliedDiscount);
+      location.href = "/pages/checkout-curso.html";
+    });
+
+    (async function init() {
+      const { ok } = await QA.api("/api/auth/me");
+      document.getElementById("login-hint").classList.toggle("hidden", ok);
+      await renderCart();
+    })();
+  </script>
+</body>
+</html>

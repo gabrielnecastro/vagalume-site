@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Job — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/star-rating.js" defer></script>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <p class="breadcrumb"><a href="/">Jobs</a> / <span id="crumb-title">loading...</span></p>
+
+    <div id="job-wrap" class="hidden">
+      <section class="card job-detail-card">
+        <div class="job-detail-head">
+          <img id="job-logo" class="logo" src="" alt="" />
+          <div style="flex:1">
+            <h1 id="job-title" data-testid="job-title"></h1>
+            <p class="muted" id="job-company-line"></p>
+            <div class="tags mt-8" id="job-tags"></div>
+          </div>
+          <div class="job-salary" id="job-salary" data-testid="job-salary"></div>
+        </div>
+
+        <p id="job-closed-banner" class="badge warn hidden mt-16" data-testid="job-closed-banner">This job is no longer accepting applications.</p>
+
+        <div class="mt-16">
+          <button id="apply-btn" data-testid="apply-btn">Apply now</button>
+          <span id="apply-status" class="muted" data-testid="apply-status" style="margin-left:12px"></span>
+        </div>
+
+        <h2 class="mt-24">Job description</h2>
+        <p id="job-description" data-testid="job-description"></p>
+
+        <h2 class="mt-24">Requirements</h2>
+        <p id="job-requirements" data-testid="job-requirements"></p>
+      </section>
+
+      <section class="card mt-16">
+        <div class="pill-row" style="justify-content:space-between">
+          <h2>About the company</h2>
+          <a id="company-link" class="btn-view-company" href="#" data-testid="company-link">View company profile →</a>
+        </div>
+        <div class="pill-row mt-8">
+          <img id="company-logo" class="logo" src="" alt="" style="width:48px;height:48px" />
+          <div>
+            <strong id="company-name"></strong>
+            <div class="pill-row" style="gap:6px">
+              <star-rating id="company-stars" readonly value="0"></star-rating>
+              <span class="muted" id="company-rating-text" data-testid="company-rating-text"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card mt-16">
+        <h2>Reviews from candidates and former employees</h2>
+        <p class="muted">Leave your rating and a note about the hiring process or your experience at the company.</p>
+
+        <div id="review-form-wrap">
+          <form id="review-form" data-testid="review-form">
+            <label>Your rating
+              <star-rating id="review-stars-input" value="0" data-testid="review-stars-input"></star-rating>
+              <input type="hidden" id="review-rating" name="rating" required />
+            </label>
+            <label class="mt-8">Your comment
+              <textarea id="review-comment" name="comment" rows="3" required placeholder="How was the hiring process or your experience at this job?" data-testid="review-comment"></textarea>
+            </label>
+            <label class="mt-8 pill-row" style="justify-content:flex-start">
+              <input type="checkbox" id="review-was-employee" name="wasEmployee" data-testid="review-was-employee" />
+              I was hired / was an employee at this company
+            </label>
+            <button type="submit" class="mt-8" data-testid="review-submit">Post review</button>
+            <span id="review-error" class="badge err hidden" data-testid="review-error"></span>
+          </form>
+        </div>
+        <p id="review-login-hint" class="muted hidden" data-testid="review-login-hint">
+          <a href="/pages/entrar.html">Sign in with a candidate account</a> to review this job.
+        </p>
+
+        <div id="reviews-list" class="mt-16" data-testid="reviews-list"></div>
+        <p id="no-reviews" class="muted hidden" data-testid="no-reviews">There are no reviews for this job yet. Be the first to leave one!</p>
+      </section>
+    </div>
+
+    <p id="not-found" class="card hidden" data-testid="job-not-found">
+      Job not found. <a href="/">Back to all jobs</a>.
+    </p>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get("id");
+    let currentUser = null;
+    let currentJob = null;
+
+    function tag(text) {
+      const s = document.createElement("span");
+      s.textContent = text;
+      return s;
+    }
+
+    async function loadMe() {
+      const { ok, body } = await QA.api("/api/auth/me");
+      if (ok) currentUser = body.data;
+    }
+
+    async function loadJob() {
+      if (!id) return showNotFound();
+      const { ok, body } = await QA.api(`/api/jobs/${id}`);
+      if (!ok) return showNotFound();
+      currentJob = body.data;
+      renderJob();
+      await Promise.all([loadCompany(), loadReviews()]);
+      document.getElementById("job-wrap").classList.remove("hidden");
+    }
+
+    function showNotFound() {
+      document.getElementById("not-found").classList.remove("hidden");
+      document.getElementById("crumb-title").textContent = "job not found";
+    }
+
+    function renderJob() {
+      const j = currentJob;
+      document.getElementById("crumb-title").textContent = j.title;
+      document.title = `${j.title} — Vagalume`;
+      document.getElementById("job-logo").src = j.company ? j.company.logo : "/img/logos/default.svg";
+      document.getElementById("job-logo").alt = j.company ? j.company.name : "";
+      document.getElementById("job-title").textContent = j.title;
+      document.getElementById("job-company-line").textContent = `${j.company ? j.company.name : ""} · ${j.city}`;
+      document.getElementById("job-salary").textContent = j.salary;
+      document.getElementById("job-description").textContent = j.description;
+      document.getElementById("job-requirements").textContent = (j.requirements || "").trim() || "Not specified.";
+
+      const tagsWrap = document.getElementById("job-tags");
+      tagsWrap.innerHTML = "";
+      [j.area, j.seniority, j.contractType, j.workModel].forEach((t) => tagsWrap.appendChild(tag(t)));
+
+      if (j.status !== "open") {
+        document.getElementById("job-closed-banner").classList.remove("hidden");
+        document.getElementById("apply-btn").disabled = true;
+        document.getElementById("apply-btn").textContent = "Job closed";
+      } else if (currentUser && currentUser.role === "employer") {
+        document.getElementById("apply-btn").disabled = true;
+        document.getElementById("apply-btn").textContent = "Employer accounts can't apply";
+      }
+
+      document.getElementById("company-link").href = `/pages/empresa.html?id=${j.companyId}`;
+    }
+
+    async function loadCompany() {
+      const { ok, body } = await QA.api(`/api/companies/${currentJob.companyId}`);
+      if (!ok) return;
+      const c = body.data;
+      document.getElementById("company-logo").src = c.logo;
+      document.getElementById("company-name").textContent = c.name;
+      document.getElementById("company-stars").value = c.rating.average || 0;
+      document.getElementById("company-rating-text").textContent = c.rating.count
+        ? `${c.rating.average} out of 5 (${c.rating.count} review${c.rating.count > 1 ? "s" : ""})`
+        : "No reviews yet";
+    }
+
+    function reviewCard(r) {
+      const el = document.createElement("div");
+      el.className = "card mt-8";
+      el.dataset.testid = "review-card";
+      el.innerHTML = `
+        <div class="pill-row" style="justify-content:space-between">
+          <strong></strong>
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US")}</span>
+        </div>
+        <star-rating readonly value="${r.rating}"></star-rating>
+        ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}
+        <p class="mt-8"></p>`;
+      // N-12 (10/17/2026): author and comment are shown as plain text, never as HTML
+      el.querySelector("strong").textContent = r.author;
+      el.querySelector("p").textContent = r.comment;
+      return el;
+    }
+
+    async function loadReviews() {
+      const { ok, body } = await QA.api(`/api/jobs/${id}/reviews`);
+      if (!ok) return;
+      const list = document.getElementById("reviews-list");
+      list.innerHTML = "";
+      body.data.forEach((r) => list.appendChild(reviewCard(r)));
+      document.getElementById("no-reviews").classList.toggle("hidden", body.data.length > 0);
+
+      const canReview = currentUser && currentUser.role === "candidate";
+      document.getElementById("review-form-wrap").classList.toggle("hidden", !canReview);
+      document.getElementById("review-login-hint").classList.toggle("hidden", !!canReview);
+    }
+
+    document.getElementById("apply-btn").addEventListener("click", async () => {
+      if (!currentUser) {
+        // N-11 (10/17/2026): the sign-in page shows the message, so the visitor can read it
+        location.href = "/pages/entrar.html?reason=apply";
+        return;
+      }
+      if (currentUser.role !== "candidate") {
+        Store.toast("Only candidate accounts can apply", "err");
+        return;
+      }
+      const { ok, status, body } = await QA.api(`/api/jobs/${id}/apply`, { method: "POST" });
+      if (ok) {
+        document.getElementById("apply-status").textContent = "Application sent ✅";
+        document.getElementById("apply-btn").disabled = true;
+        Store.toast("Application sent successfully!");
+      } else if (status === 409 && body && body.error === "job_closed") {
+        // the job was closed after the page loaded: it is not "already applied"
+        document.getElementById("apply-status").textContent = body.message;
+        document.getElementById("apply-btn").disabled = true;
+        document.getElementById("apply-btn").textContent = "Job closed";
+      } else if (status === 409) {
+        document.getElementById("apply-status").textContent = "You have already applied to this job";
+        document.getElementById("apply-btn").disabled = true;
+      } else {
+        Store.toast(body && body.message ? body.message : "Couldn't send the application", "err");
+      }
+    });
+
+    document.getElementById("review-stars-input").addEventListener("rating-change", (ev) => {
+      document.getElementById("review-rating").value = ev.detail.value;
+    });
+
+    document.getElementById("review-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const errEl = document.getElementById("review-error");
+      errEl.classList.add("hidden");
+      const rating = Number(document.getElementById("review-rating").value);
+      const comment = document.getElementById("review-comment").value.trim();
+      const wasEmployee = document.getElementById("review-was-employee").checked;
+      if (!rating) {
+        errEl.textContent = "Select a rating from 1 to 5 stars";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      const { ok, body } = await QA.api(`/api/jobs/${id}/reviews`, {
+        method: "POST",
+        body: JSON.stringify({ rating, comment, wasEmployee }),
+      });
+      if (!ok) {
+        errEl.textContent = (body && body.message) || "Couldn't post the review";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      Store.toast("Review posted!");
+      document.getElementById("review-form").reset();
+      document.getElementById("review-rating").value = "";
+      document.getElementById("review-stars-input").value = 0;
+      await Promise.all([loadReviews(), loadCompany()]);
+    });
+
+    // N-10 (10/17/2026): show the applied state as soon as the page loads
+    async function loadAppliedState() {
+      if (!currentJob || currentJob.status !== "open" || !currentUser || currentUser.role !== "candidate") return;
+      const appliedIds = await Store.getAppliedJobIds();
+      if (appliedIds.has(currentJob.id)) {
+        document.getElementById("apply-status").textContent = "You have already applied to this job";
+        document.getElementById("apply-btn").disabled = true;
+      }
+    }
+
+    (async function init() {
+      await loadMe();
+      await loadJob();
+      await loadAppliedState();
+    })();
+  </script>
+</body>
+</html>

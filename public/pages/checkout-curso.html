@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Checkout — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="narrow">
+    <nav class="breadcrumb"><a href="/">Home</a> / <a href="/pages/carrinho.html">Cart</a> / Checkout</nav>
+    <h1>Checkout</h1>
+
+    <div class="card" id="summary-card">
+      <h2 style="margin-top:0">Order summary</h2>
+      <div id="summary-items" data-testid="summary-items"></div>
+      <p class="mt-8">Total: <strong id="summary-total" data-testid="summary-total"></strong></p>
+    </div>
+
+    <form id="checkout-form" class="card">
+      <h2 style="margin-top:0">Payment method</h2>
+      <div class="pill-row" role="radiogroup" data-testid="payment-method">
+        <label style="display:flex;align-items:center;gap:6px;width:auto;margin:0">
+          <input type="radio" name="payment" value="card" style="width:auto" checked /> Credit card
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;width:auto;margin:0">
+          <input type="radio" name="payment" value="pix" style="width:auto" /> Pix
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;width:auto;margin:0">
+          <input type="radio" name="payment" value="boleto" style="width:auto" /> Boleto
+        </label>
+      </div>
+
+      <div id="card-fields" class="mt-16">
+        <label for="card-number">Card number</label>
+        <input id="card-number" placeholder="0000 0000 0000 0000" data-testid="checkout-card-number" />
+        <div class="pill-row">
+          <div style="flex:1">
+            <label for="card-expiry">Expiry</label>
+            <input id="card-expiry" placeholder="MM/YY" data-testid="checkout-card-expiry" />
+          </div>
+          <div style="flex:1">
+            <label for="card-cvv">CVV</label>
+            <input id="card-cvv" placeholder="000" data-testid="checkout-card-cvv" />
+          </div>
+        </div>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:16px">
+        <input type="checkbox" id="terms" style="width:auto" required data-testid="checkout-terms" /> I have read and accept the purchase terms *
+      </label>
+      <div class="field-error" data-testid="error-terms"></div>
+
+      <div class="mt-16 pill-row">
+        <button type="submit" id="submit-btn" data-testid="checkout-submit">Confirm purchase</button>
+        <button type="button" class="secondary" id="cancel-btn" data-testid="checkout-cancel">Cancel</button>
+      </div>
+
+      <p id="checkout-status" class="mt-16" data-testid="checkout-status"></p>
+    </form>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const cart = Store.getCart();
+    const discount = parseFloat(sessionStorage.getItem("vagalume_course_discount") || "0");
+    const couponCode = sessionStorage.getItem("vagalume_course_coupon") || null;
+
+    if (!cart.length) location.href = "/pages/carrinho.html";
+
+    async function renderSummary() {
+      const itemsEl = document.getElementById("summary-items");
+      itemsEl.innerHTML = "";
+      let subtotal = 0;
+      for (const item of cart) {
+        const { body } = await QA.api(`/api/courses/${item.courseId}`);
+        subtotal += body.data.price;
+        const line = document.createElement("p");
+        line.textContent = `${body.data.title} — ${body.data.price === 0 ? "Free" : `R$ ${body.data.price.toFixed(2)}`}`;
+        itemsEl.appendChild(line);
+      }
+      document.getElementById("summary-total").textContent = `R$ ${(subtotal * (1 - discount)).toFixed(2)}`;
+    }
+    renderSummary();
+
+    document.getElementById("cancel-btn").addEventListener("click", () => {
+      if (confirm("Are you sure you want to cancel and go back to the cart?")) {
+        location.href = "/pages/carrinho.html";
+      }
+    });
+
+    document.getElementById("checkout-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const terms = document.getElementById("terms").checked;
+      document.querySelector('[data-testid="error-terms"]').textContent = terms ? "" : "You need to accept the terms";
+      if (!terms) return;
+
+      const submitBtn = document.getElementById("submit-btn");
+      const statusEl = document.getElementById("checkout-status");
+      submitBtn.disabled = true;
+      statusEl.innerHTML = '<span class="spinner"></span> Processing payment...';
+      statusEl.className = "mt-16";
+
+      const payload = {
+        items: cart,
+        paymentMethod: document.querySelector('input[name="payment"]:checked').value,
+        couponCode,
+      };
+
+      const { ok, status, body } = await QA.api("/api/courses/checkout", { method: "POST", body: JSON.stringify(payload) });
+      submitBtn.disabled = false;
+
+      if (ok) {
+        Store.setCart([]);
+        sessionStorage.removeItem("vagalume_course_discount");
+        sessionStorage.removeItem("vagalume_course_coupon");
+        location.href = `/pages/pedido-curso-confirmado.html?id=${body.data.id}`;
+      } else if (status === 409) {
+        statusEl.textContent = body.message;
+        statusEl.className = "mt-16 badge warn";
+      } else {
+        statusEl.textContent = `${body.message} — you can try again.`;
+        statusEl.className = "mt-16 badge err";
+      }
+    });
+  </script>
+</body>
+</html>

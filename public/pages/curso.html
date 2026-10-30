@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Course — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <p class="breadcrumb"><a href="/pages/cursos.html">Courses</a> / <span id="crumb-title">loading...</span></p>
+
+    <div id="course-wrap" class="hidden">
+      <section class="card job-detail-card">
+        <div class="job-detail-head">
+          <img id="course-image" class="logo" style="width:96px;height:96px;padding:8px" src="" alt="" />
+          <div style="flex:1">
+            <span class="muted" id="course-category"></span>
+            <h1 id="course-title" data-testid="course-title"></h1>
+            <p class="muted" id="course-instructor"></p>
+            <div class="pill-row mt-8">
+              <span id="course-rating" data-testid="course-rating"></span>
+              <span class="muted" id="course-students"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-16" id="price-block"></div>
+
+        <div class="mt-16 pill-row">
+          <button id="cart-btn" data-testid="cart-btn"></button>
+          <span id="enrolled-badge" class="badge ok hidden" data-testid="enrolled-badge">✓ You're already enrolled</span>
+        </div>
+
+        <h2 class="mt-24">About this course</h2>
+        <p id="course-description" data-testid="course-description"></p>
+
+        <div class="pill-row mt-16">
+          <span class="badge ok" data-testid="course-duration"></span>
+          <span class="badge ok" data-testid="course-lessons"></span>
+          <span class="badge ok" data-testid="course-level"></span>
+        </div>
+      </section>
+    </div>
+
+    <p id="not-found" class="card hidden" data-testid="course-not-found">
+      Course not found. <a href="/pages/cursos.html">Back to courses</a>.
+    </p>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const id = Number(new URLSearchParams(location.search).get("id"));
+    let course = null;
+
+    function priceBlock() {
+      const el = document.getElementById("price-block");
+      if (course.price === 0) {
+        el.innerHTML = `<span class="course-price"><span class="free" style="font-size:1.3rem">Free</span></span>`;
+        return;
+      }
+      const original = course.originalPrice ? `<span class="original" style="font-size:1rem">R$ ${course.originalPrice.toFixed(2)}</span>` : "";
+      el.innerHTML = `<span class="course-price"><span class="current" style="font-size:1.4rem">R$ ${course.price.toFixed(2)}</span>${original}</span>`;
+    }
+
+    function refreshCartButton() {
+      const btn = document.getElementById("cart-btn");
+      if (Store.inCart(course.id)) {
+        btn.textContent = "✓ In cart — go to cart";
+        btn.className = "secondary";
+      } else {
+        btn.textContent = "Add to cart";
+        btn.className = "";
+      }
+    }
+
+    document.getElementById("cart-btn").addEventListener("click", () => {
+      if (Store.inCart(course.id)) { location.href = "/pages/carrinho.html"; return; }
+      Store.addToCart(course.id);
+      Store.toast(`"${course.title}" added to cart`);
+      refreshCartButton();
+    });
+
+    async function checkEnrollment() {
+      const { ok, body } = await QA.api("/api/users/me/enrollments");
+      if (!ok) return;
+      const enrolled = body.data.some((e) => e.courseId === course.id);
+      document.getElementById("enrolled-badge").classList.toggle("hidden", !enrolled);
+      document.getElementById("cart-btn").classList.toggle("hidden", enrolled);
+    }
+
+    async function init() {
+      if (!id) return document.getElementById("not-found").classList.remove("hidden");
+      const { ok, body } = await QA.api(`/api/courses/${id}`);
+      if (!ok) {
+        document.getElementById("not-found").classList.remove("hidden");
+        document.getElementById("crumb-title").textContent = "course not found";
+        return;
+      }
+      course = body.data;
+      document.getElementById("crumb-title").textContent = course.title;
+      document.title = `${course.title} — Vagalume`;
+      document.getElementById("course-image").src = course.image;
+      document.getElementById("course-image").alt = course.title;
+      document.getElementById("course-category").textContent = `${course.category} · ${course.level}`;
+      document.getElementById("course-title").textContent = course.title;
+      document.getElementById("course-instructor").textContent = `Instructor: ${course.instructor}`;
+      document.getElementById("course-rating").innerHTML = `★ ${course.rating.average} <span class="muted">(${course.rating.count} reviews)</span>`;
+      document.getElementById("course-students").textContent = `${course.studentsCount.toLocaleString("en-US")} students enrolled`;
+      document.getElementById("course-description").textContent = course.description;
+      document.querySelector('[data-testid="course-duration"]').textContent = `⏱ ${course.duration}h of content`;
+      document.querySelector('[data-testid="course-lessons"]').textContent = `📚 ${course.lessonsCount} lessons`;
+      document.querySelector('[data-testid="course-level"]').textContent = `🎯 ${course.level}`;
+
+      priceBlock();
+      refreshCartButton();
+      await checkEnrollment();
+      document.getElementById("course-wrap").classList.remove("hidden");
+    }
+
+    init();
+  </script>
+</body>
+</html>

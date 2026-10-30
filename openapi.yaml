@@ -1,0 +1,1523 @@
+openapi: 3.0.3
+info:
+  title: Vagalume API
+  version: 1.0.0
+  description: |
+    REST API of **Vagalume**, a fictional job board built for testing.
+
+    **How to authenticate here**
+
+    - **Session cookie** (candidate and employer accounts): call `POST /api/auth/login` with
+      "Try it out". The server sets an httpOnly `session` cookie in your browser, and every
+      request made from this page sends it automatically. Use `POST /api/auth/logout` to end it.
+    - **HTTP Basic Auth** (admin routes): click **Authorize** and use `admin` / `admin123`.
+
+    **Demo accounts:** `candidato@vagalume.test` / `demo123` (candidate) and
+    `empresa@vagalume.test` / `demo123` (employer, Nimbus Tech). Prefer creating your own
+    accounts with `POST /api/auth/register`, so the demo data stays as it is.
+
+    **Failures on purpose:** some routes fail by design, to be found and handled by tests:
+    the course checkout (~15% of 502), `POST /api/admin/reprocess-applications` (~35% of 500),
+    the rate limits (429), and the practice routes in **Testing utilities**.
+
+    Every error response has the same shape: `{ "error": "<code>", "message": "<text>" }`,
+    sometimes with a `field`. A request body that is not valid JSON returns `400 invalid_json`
+    on every route.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: /
+    description: This server
+tags:
+  - name: Health
+  - name: Auth
+    description: Sign-up, sign-in, and the signed-in account
+  - name: Companies
+  - name: Jobs
+  - name: Reviews
+    description: Reviews of a job and its company, written by candidates
+  - name: Applications
+  - name: Candidate profile
+    description: Work experience, preferences, and résumé (candidate accounts only)
+  - name: Courses
+    description: Course marketplace (catalog, coupon, checkout, orders)
+  - name: Uploads and downloads
+  - name: Admin
+    description: Admin panel API (HTTP Basic Auth)
+  - name: Testing utilities
+    description: General-purpose routes for API testing practice
+
+paths:
+  # ---------------------------------------------------------------- Health
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Healthcheck
+      responses:
+        "200":
+          description: The server is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  uptime: { type: number, description: Seconds since the server started }
+                  timestamp: { type: string, format: date-time }
+
+  # ---------------------------------------------------------------- Auth
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a candidate or employer account
+      description: |
+        Creates the account and signs it in (sets the `session` cookie for 7 days).
+        An employer account also creates its company. HTML tags are removed from the name,
+        and from the company name and city.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role, acceptTerms]
+              properties:
+                name: { type: string, example: QA Candidate }
+                email: { type: string, description: "Format something@domain.ext, no spaces", example: qa.candidate@example.test }
+                password: { type: string, minLength: 6, description: At least 6 characters, no spaces, example: senha123 }
+                role: { type: string, enum: [candidate, employer] }
+                city: { type: string, description: Optional; cannot contain only spaces, example: "Belo Horizonte, MG" }
+                companyName: { type: string, description: Required when role is employer }
+                acceptTerms: { type: boolean, description: Must be exactly `true`, example: true }
+      responses:
+        "201":
+          description: Account created and signed in
+          headers:
+            Set-Cookie: { description: "httpOnly `session` cookie (7 days)", schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/SessionUser" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "400": { $ref: "#/components/responses/InvalidJson" }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in
+      description: |
+        Sets the httpOnly `session` cookie. With `remember: true` the cookie lasts 7 days
+        (the same as the token); without it, it is a browser-session cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, example: candidato@vagalume.test }
+                password: { type: string, example: demo123 }
+                remember: { type: boolean, description: '"Keep me signed in"' }
+      responses:
+        "200":
+          description: Signed in
+          headers:
+            Set-Cookie: { description: httpOnly `session` cookie, schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/SessionUser" }
+        "401":
+          description: "`user_not_found` or `wrong_password`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422":
+          description: "`missing_credentials`, `missing_email`, `missing_password`, or `invalid_email_format`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "400": { $ref: "#/components/responses/InvalidJson" }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out (clears the session cookie)
+      responses:
+        "200":
+          description: Signed out
+          content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: The signed-in account
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: The account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/users/me:
+    patch:
+      tags: [Auth]
+      summary: Update name, city, or password
+      description: |
+        Send only the fields to change. To change the password, send `currentPassword`,
+        `newPassword`, and `confirmPassword` (must match `newPassword`).
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, description: Cannot be blank }
+                city: { type: string, description: Cannot contain only spaces }
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 6, description: At least 6 characters, no spaces }
+                confirmPassword: { type: string }
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  # ---------------------------------------------------------------- Companies
+  /api/companies:
+    get:
+      tags: [Companies]
+      summary: List companies with their average rating
+      responses:
+        "200":
+          description: Companies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/CompanyWithRating" } }
+
+  /api/companies/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Companies]
+      summary: Company detail
+      responses:
+        "200":
+          description: The company
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/CompanyWithRating" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Companies]
+      summary: Edit your own company (employer)
+      description: HTML tags are removed from the text fields. The name cannot be blank.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyInput" }
+      responses:
+        "200":
+          description: Updated company
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Company" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/companies/{id}/jobs:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Companies]
+      summary: Jobs of a company (open and closed)
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Job" } }
+
+  /api/companies/{id}/reviews:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Companies]
+      summary: Reviews of a company
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Review" } }
+
+  /api/companies/{id}/follow:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [Companies]
+      summary: Follow a company (candidate)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "201":
+          description: Following
+          content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Companies]
+      summary: Unfollow a company (candidate)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "204": { description: Unfollowed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/users/me/followed-companies:
+    get:
+      tags: [Companies]
+      summary: Companies the signed-in account follows
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Companies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/CompanyWithRating" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------------------------------------------------------- Jobs
+  /api/jobs:
+    get:
+      tags: [Jobs]
+      summary: Search jobs (pagination, search, filters, sorting)
+      description: |
+        Returns only open jobs unless `status` says otherwise. Without `sort`, the newest job
+        comes first.
+      parameters:
+        - { name: q, in: query, description: "Searches title, description, and company name (case-insensitive; spaces around the term are ignored)", schema: { type: string } }
+        - { name: area, in: query, schema: { $ref: "#/components/schemas/Area" } }
+        - { name: seniority, in: query, schema: { $ref: "#/components/schemas/Seniority" } }
+        - { name: contractType, in: query, schema: { $ref: "#/components/schemas/ContractType" } }
+        - { name: workModel, in: query, schema: { $ref: "#/components/schemas/WorkModel" } }
+        - { name: city, in: query, description: Exact match, schema: { type: string, example: "São Paulo, SP" } }
+        - { name: companyId, in: query, schema: { type: integer } }
+        - { name: status, in: query, description: "`open` (default), `closed`, or `all`", schema: { type: string, enum: [open, closed, all] } }
+        - { name: sort, in: query, description: Any job field, e.g. `title` or `id`, schema: { type: string } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+        - { name: page, in: query, description: Whole number ≥ 1 (otherwise 422), schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, description: Whole number from 1 to 100 (otherwise 422), schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        "200":
+          description: A page of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Job" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [Jobs]
+      summary: Post a job (employer)
+      description: |
+        The job belongs to the signed-in employer's company. HTML tags are removed from the text
+        fields; requirements with only spaces are saved empty.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/JobInput"
+                - required: [title, area]
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/jobs/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Jobs]
+      summary: Job detail
+      responses:
+        "200":
+          description: The job
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Job" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Jobs]
+      summary: Edit a job of your company (employer)
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobInput" }
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Jobs]
+      summary: Delete a job of your company (employer)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- Reviews
+  /api/jobs/{id}/reviews:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Reviews]
+      summary: Reviews of a job
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Review" } }
+    post:
+      tags: [Reviews]
+      summary: Review a job and its company (candidate)
+      description: HTML tags are removed from the comment. The author is the signed-in account.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating, comment]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5, description: Whole number from 1 to 5, example: 4 }
+                comment: { type: string, description: Cannot be blank, example: Clear hiring process. }
+                wasEmployee: { type: boolean, description: Shows "Former employee" on the review }
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Review" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/users/me/reviews:
+    get:
+      tags: [Reviews]
+      summary: Reviews written by the signed-in account (newest first)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Review" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/reviews/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [Reviews]
+      summary: Delete a review (author only)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- Applications
+  /api/jobs/{id}/apply:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [Applications]
+      summary: Apply to a job (candidate)
+      description: |
+        Without a valid session this route returns **403** (not 401): `not_authenticated` or
+        `invalid_session`. An employer account also gets 403 (`forbidden`).
+      security: [{ cookieAuth: [] }]
+      responses:
+        "201":
+          description: Application received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Application" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`job_closed` (the job is not open) or `already_applied`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                job_closed: { value: { error: job_closed, message: This job is no longer accepting applications. } }
+                already_applied: { value: { error: already_applied, message: You have already applied to this job } }
+
+  /api/applications/me:
+    get:
+      tags: [Applications]
+      summary: The signed-in candidate's applications (newest first)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Applications, each with its job
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Application"
+                        - type: object
+                          properties:
+                            job: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/jobs/{id}/applications:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Applications]
+      summary: Applications to a job of your company (employer kanban)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Applications, each with its candidate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Application"
+                        - type: object
+                          properties:
+                            candidate:
+                              type: object
+                              nullable: true
+                              properties:
+                                id: { type: integer }
+                                name: { type: string }
+                                email: { type: string }
+                                city: { type: string }
+                                resumeUrl: { type: string, nullable: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/applications/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [Applications]
+      summary: Move an application on the kanban (employer)
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/ApplicationStatus" }
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  # ---------------------------------------------------------------- Candidate profile
+  /api/users/me/experiences:
+    get:
+      tags: [Candidate profile]
+      summary: Work experience (current jobs first, then the most recent start)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Experiences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Experience" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Candidate profile]
+      summary: Add a work experience
+      description: HTML tags are removed from every field.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/ExperienceInput"
+                - required: [company, role]
+      responses:
+        "201":
+          description: Experience created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Experience" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/experiences/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [Candidate profile]
+      summary: Edit one of your experiences
+      description: Send only the fields to change. Another account's experience returns 404.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperienceInput" }
+      responses:
+        "200":
+          description: Updated experience
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Experience" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Candidate profile]
+      summary: Remove one of your experiences
+      security: [{ cookieAuth: [] }]
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/users/me/preferences:
+    get:
+      tags: [Candidate profile]
+      summary: Job preferences
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Preferences" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      tags: [Candidate profile]
+      summary: Save job preferences
+      description: |
+        Only the options offered on screen are accepted (an empty value clears area, seniority,
+        or work model). An empty `minSalary` is saved as 0.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Preferences" }
+      responses:
+        "200":
+          description: Saved preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Preferences" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/users/me/resume:
+    post:
+      tags: [Candidate profile]
+      summary: Upload the résumé
+      description: |
+        Accepts .pdf, .doc, and .docx up to 5 MB (exactly 5 MB is accepted). A new résumé
+        replaces and deletes the previous file.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Résumé saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      url: { type: string, example: /uploads/3f2a9c0d1b7e4a6f8c2d5e9a0b1c3d4e.pdf }
+        "400":
+          description: "`no_file`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422":
+          description: "`invalid_file_type` or `file_too_large`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  # ---------------------------------------------------------------- Courses
+  /api/courses:
+    get:
+      tags: [Courses]
+      summary: Course catalog (pagination, search, filters, sorting)
+      parameters:
+        - { name: q, in: query, description: Searches title, instructor, and tags, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string, example: Technology } }
+        - { name: level, in: query, schema: { type: string, enum: [Beginner, Intermediate, Advanced] } }
+        - { name: sort, in: query, description: Any course field, e.g. `price` or `title`, schema: { type: string } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        "200":
+          description: A page of courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Course" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+
+  /api/courses/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Courses]
+      summary: Course detail
+      description: Course 4 is free (R$ 0.00). Course 5 has a broken image on purpose.
+      responses:
+        "200":
+          description: The course
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Course" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/courses/coupons/apply:
+    post:
+      tags: [Courses]
+      summary: Check a discount coupon
+      description: |
+        Valid coupons: `STUDENT10` (10%), `LAUNCH20` (20%), and `CAREER5` (5%); case-insensitive.
+        **Rate limit:** 5 attempts every 30 seconds per IP, then 429 with `Retry-After: 30`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string, example: STUDENT10 }
+      responses:
+        "200":
+          description: Valid coupon
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      code: { type: string, example: STUDENT10 }
+                      discount: { type: number, description: Fraction of the price, example: 0.1 }
+                  remaining: { type: integer, description: Attempts left in the window }
+        "404":
+          description: "`invalid_coupon` (the body also has `remaining`)"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/courses/checkout:
+    post:
+      tags: [Courses]
+      summary: Buy the courses in the cart (simulated payment gateway)
+      description: |
+        **Fails on purpose:** the simulated gateway takes 1.2 to 3 seconds and fails ~15% of the
+        time with `502 payment_gateway_timeout`. A total of R$ 0.00 is instant and never fails.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      courseId: { type: integer, example: 1 }
+                paymentMethod: { type: string, enum: [card, pix, boleto], default: card }
+                couponCode: { type: string, description: An invalid coupon is ignored, example: STUDENT10 }
+      responses:
+        "201":
+          description: Order paid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Order" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`already_enrolled` in one of the courses"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "502":
+          description: "`payment_gateway_timeout` (on purpose, ~15%)"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/courses/orders/me:
+    get:
+      tags: [Courses]
+      summary: The signed-in account's orders
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Order" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/courses/orders/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [Courses]
+      summary: One of your orders
+      description: Another account's order returns 404.
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Order" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/users/me/enrollments:
+    get:
+      tags: [Courses]
+      summary: Courses bought by the signed-in account (newest first)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Enrollments, each with its course
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        userId: { type: integer }
+                        courseId: { type: integer }
+                        pricePaid: { type: number }
+                        purchasedAt: { type: string, format: date-time }
+                        course: { $ref: "#/components/schemas/Course" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------------------------------------------------------- Uploads and downloads
+  /api/upload:
+    post:
+      tags: [Uploads and downloads]
+      summary: Generic file upload (logo, photo)
+      description: Any file type, up to 5 MB. No sign-in needed.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: File saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      originalName: { type: string }
+                      size: { type: integer }
+                      mimetype: { type: string }
+                      url: { type: string, example: /uploads/c14722a2ceea7512a5e4cf3ebced754c }
+        "400":
+          description: "`no_file`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/download/applicants.csv:
+    get:
+      tags: [Uploads and downloads]
+      summary: CSV of the applications to your company's jobs (employer)
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: "Columns: id, name, email, job, status"
+          content:
+            text/csv:
+              schema: { type: string, example: "id,name,email,job,status\n1,\"Ana Souza\",\"ana@example.test\",\"QA Automation Analyst\",received" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ---------------------------------------------------------------- Admin
+  /api/admin/jobs:
+    get:
+      tags: [Admin]
+      summary: All jobs
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Job" } }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+
+  /api/admin/jobs/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [Admin]
+      summary: Delete a job
+      security: [{ basicAuth: [] }]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/admin/reviews:
+    get:
+      tags: [Admin]
+      summary: All reviews
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Review" } }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+
+  /api/admin/reviews/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [Admin]
+      summary: Delete a review
+      security: [{ basicAuth: [] }]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/admin/companies:
+    get:
+      tags: [Admin]
+      summary: All companies
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Companies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Company" } }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+
+  /api/admin/courses:
+    get:
+      tags: [Admin]
+      summary: All courses
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Course" } }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+
+  /api/admin/courses/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [Admin]
+      summary: Delete a course
+      security: [{ basicAuth: [] }]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/admin/course-orders:
+    get:
+      tags: [Admin]
+      summary: All course orders, with the buyer's name
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Order"
+                        - type: object
+                          properties:
+                            userName: { type: string }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+
+  /api/admin/sync-feed:
+    post:
+      tags: [Admin]
+      summary: Resync the job feed (slow on purpose, 2.5 to 4 s)
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Resynced
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string, example: Job feed resynced with partners }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+
+  /api/admin/reprocess-applications:
+    post:
+      tags: [Admin]
+      summary: Reprocess applications (fails ~35% of the time on purpose)
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Reprocessed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  reprocessed: { type: integer }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+        "500":
+          description: "`integration_error` (on purpose, ~35%)"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/admin/test-webhook:
+    post:
+      tags: [Admin]
+      summary: Test the webhook (rate limit of 5 every 10 s)
+      security: [{ basicAuth: [] }]
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  remaining: { type: integer }
+        "401": { $ref: "#/components/responses/BasicUnauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  # ---------------------------------------------------------------- Testing utilities
+  /api/status/{code}:
+    get:
+      tags: [Testing utilities]
+      summary: Respond with any HTTP status
+      parameters:
+        - { name: code, in: path, required: true, description: 100 to 599, schema: { type: integer, minimum: 100, maximum: 599, example: 418 } }
+      responses:
+        "200":
+          description: The response comes with the requested status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestedStatus: { type: integer }
+                  message: { type: string }
+        "400":
+          description: "`invalid_status` (outside 100–599)"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/slow:
+    get:
+      tags: [Testing utilities]
+      summary: Delayed response
+      parameters:
+        - { name: ms, in: query, description: "Delay in ms (0 to 15000; default 3000)", schema: { type: integer, minimum: 0, maximum: 15000, default: 3000 } }
+      responses:
+        "200":
+          description: Answered after the delay
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  waitedMs: { type: integer }
+                  message: { type: string }
+
+  /api/flaky:
+    get:
+      tags: [Testing utilities]
+      summary: Random failure
+      parameters:
+        - { name: failRate, in: query, description: "Chance of failing, from 0 to 1 (default 0.3)", schema: { type: number, minimum: 0, maximum: 1, default: 0.3 } }
+      responses:
+        "200":
+          description: It worked this time
+          content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } }
+        "500":
+          description: "`random_failure` (on purpose)"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /api/rate-limited:
+    get:
+      tags: [Testing utilities]
+      summary: Rate limit of 5 requests every 10 s per IP
+      responses:
+        "200":
+          description: Allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  remaining: { type: integer }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/redirect:
+    get:
+      tags: [Testing utilities]
+      summary: Redirects (302) to /api/redirect-target
+      responses:
+        "302":
+          description: Redirect
+          headers:
+            Location: { schema: { type: string, example: /api/redirect-target } }
+
+  /api/redirect-target:
+    get:
+      tags: [Testing utilities]
+      summary: Redirect destination
+      responses:
+        "200":
+          description: Landed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  landed: { type: boolean }
+                  message: { type: string }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Set by `POST /api/auth/login` or `POST /api/auth/register`.
+    basicAuth:
+      type: http
+      scheme: basic
+      description: "`admin` / `admin123`"
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, example: 1 }
+
+  responses:
+    Unauthorized:
+      description: "No valid session: `not_authenticated` or `invalid_session`"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: "`forbidden`: wrong account type, or the resource belongs to someone else"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: forbidden, message: 'Only "candidate" accounts can access this' }
+    NotFound:
+      description: "`not_found`"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: Conflict with the current state (e.g. `email_in_use`)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    ValidationError:
+      description: "`validation_error` (or a more specific code); `field` names the field when there is one"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: validation_error, field: rating, message: The rating must be a whole number from 1 to 5 }
+    InvalidJson:
+      description: "`invalid_json`: the body is not valid JSON (any route)"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: invalid_json, message: The request body is not valid JSON }
+    RateLimited:
+      description: "`rate_limited`; see the `Retry-After` header"
+      headers:
+        Retry-After: { description: Seconds to wait, schema: { type: integer } }
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    BasicUnauthorized:
+      description: Missing or wrong Basic Auth credentials (plain-text body)
+      headers:
+        WWW-Authenticate: { schema: { type: string, example: Basic realm="Vagalume Admin" } }
+      content:
+        text/plain:
+          schema: { type: string, example: Authentication required (Basic Auth) }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: not_found }
+        message: { type: string }
+        field: { type: string, description: The field with the error, when there is one }
+    Ok:
+      type: object
+      properties:
+        ok: { type: boolean, example: true }
+        message: { type: string }
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+
+    Role: { type: string, enum: [candidate, employer] }
+    Area:
+      type: string
+      enum: [Technology, Procurement, Operations, Finance, Consulting, Human Resources, Design, Marketing, Logistics, Healthcare, Customer Service, Education, Engineering]
+    Seniority: { type: string, enum: [Intern, Junior, Mid-level, Senior] }
+    ContractType: { type: string, enum: [Full-time, Contractor, Internship] }
+    WorkModel: { type: string, enum: [Remote, Hybrid, On-site] }
+    ApplicationStatus: { type: string, enum: [received, in_review, interview, approved, rejected] }
+
+    SessionUser:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        companyId: { type: integer, nullable: true }
+    Me:
+      allOf:
+        - $ref: "#/components/schemas/SessionUser"
+        - type: object
+          properties:
+            city: { type: string, nullable: true }
+            resumeUrl: { type: string, nullable: true }
+
+    Company:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        sector: { type: string }
+        city: { type: string }
+        logo: { type: string, example: /img/logos/nimbus.jpg }
+        description: { type: string }
+    CompanyWithRating:
+      allOf:
+        - $ref: "#/components/schemas/Company"
+        - type: object
+          properties:
+            rating:
+              type: object
+              properties:
+                average: { type: number, nullable: true, description: One decimal place; null without reviews, example: 4.5 }
+                count: { type: integer }
+    CompanyInput:
+      type: object
+      properties:
+        name: { type: string }
+        sector: { type: string }
+        city: { type: string }
+        logo: { type: string }
+        description: { type: string }
+
+    JobInput:
+      type: object
+      properties:
+        title: { type: string, example: QA Automation Analyst }
+        area: { $ref: "#/components/schemas/Area" }
+        seniority: { $ref: "#/components/schemas/Seniority" }
+        contractType: { $ref: "#/components/schemas/ContractType" }
+        workModel: { $ref: "#/components/schemas/WorkModel" }
+        city: { type: string, example: "São Paulo, SP" }
+        salary: { type: string, example: "R$ 4,200 - R$ 5,500" }
+        status: { type: string, enum: [open, closed] }
+        description: { type: string }
+        requirements: { type: string }
+    Job:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            companyId: { type: integer }
+        - $ref: "#/components/schemas/JobInput"
+        - type: object
+          properties:
+            company:
+              type: object
+              nullable: true
+              properties:
+                id: { type: integer }
+                name: { type: string }
+                logo: { type: string }
+                city: { type: string }
+
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        companyId: { type: integer }
+        authorId: { type: integer, description: Account that wrote the review }
+        author: { type: string, description: Name shown on the review, as it was when written }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        wasEmployee: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Application:
+      type: object
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        userId: { type: integer }
+        status: { $ref: "#/components/schemas/ApplicationStatus" }
+        appliedAt: { type: string, format: date-time }
+
+    ExperienceInput:
+      type: object
+      properties:
+        company: { type: string, example: Beta Studio }
+        role: { type: string, example: QA Analyst }
+        startDate: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', description: yyyy-mm, example: 2022-01 }
+        endDate: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', description: "yyyy-mm, not before the start; leave empty for a current job", example: 2024-03 }
+        description: { type: string, description: Cannot contain only spaces }
+    Experience:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            userId: { type: integer }
+        - $ref: "#/components/schemas/ExperienceInput"
+
+    Preferences:
+      type: object
+      properties:
+        area: { type: string, description: "One of the job areas, or empty", example: Technology }
+        seniority: { type: string, description: "Intern, Junior, Mid-level, Senior, or empty", example: Mid-level }
+        workModel: { type: string, description: "Remote, Hybrid, On-site, or empty", example: Remote }
+        minSalary: { type: integer, minimum: 0, example: 5000 }
+        availability: { type: string, enum: [immediate, 15days, 30days] }
+
+    Course:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        instructor: { type: string }
+        category: { type: string }
+        level: { type: string, enum: [Beginner, Intermediate, Advanced] }
+        price: { type: number, example: 129.9 }
+        originalPrice: { type: number, nullable: true }
+        image: { type: string }
+        duration: { type: integer, description: Hours }
+        lessonsCount: { type: integer }
+        studentsCount: { type: integer }
+        ratingAverage: { type: number }
+        ratingCount: { type: integer }
+        description: { type: string }
+        tags: { type: array, items: { type: string } }
+
+    Order:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              courseId: { type: integer }
+              title: { type: string }
+              price: { type: number }
+        paymentMethod: { type: string, enum: [card, pix, boleto] }
+        subtotal: { type: number }
+        discount: { type: number, description: Fraction of the subtotal, example: 0.1 }
+        total: { type: number }
+        status: { type: string, example: paid }
+        createdAt: { type: string, format: date-time }

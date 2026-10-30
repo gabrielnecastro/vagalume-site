@@ -1,0 +1,60 @@
+# README sync: README.md (English) and README.pt-BR.md (Portuguese) must always match.
+# Fails when only one of them changes, or when their structure (headings, table rows, images) differs.
+name: README sync
+
+on:
+  push:
+    paths: ["README.md", "README.pt-BR.md"]
+  pull_request:
+    paths: ["README.md", "README.pt-BR.md"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Both READMEs changed together
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          # A new branch or a force push has no usable previous commit: compare with the parent instead
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            if git cat-file -e "$HEAD~1^{commit}" 2>/dev/null; then
+              BASE="$HEAD~1"
+            else
+              echo "First commit of the repository: nothing to compare."
+              exit 0
+            fi
+          fi
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
+          EN=0; PT=0
+          echo "$CHANGED" | grep -qx "README.md" && EN=1
+          echo "$CHANGED" | grep -qx "README.pt-BR.md" && PT=1
+          if [ "$EN" != "$PT" ]; then
+            echo "::error::README.md and README.pt-BR.md must change together. Apply the same change to the other file."
+            exit 1
+          fi
+          echo "Both READMEs changed together."
+
+      - name: Same structure in both READMEs
+        run: |
+          count() { grep -cE "$1" "$2" || true; }
+          FAIL=0
+          for kind in "headings:^#{1,6} " "table rows:^\|" "images:^!\[" "code blocks:^\`\`\`"; do
+            NAME="${kind%%:*}"; PATTERN="${kind#*:}"
+            EN=$(count "$PATTERN" README.md); PT=$(count "$PATTERN" README.pt-BR.md)
+            echo "$NAME: English $EN, Portuguese $PT"
+            if [ "$EN" != "$PT" ]; then
+              echo "::error::Different number of $NAME: README.md has $EN, README.pt-BR.md has $PT."
+              FAIL=1
+            fi
+          done
+          exit $FAIL

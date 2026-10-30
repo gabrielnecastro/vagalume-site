@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Company dashboard · Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/star-rating.js" defer></script>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main id="guard-wrap" class="hidden">
+    <div class="grid-2" style="grid-template-columns: 260px 1fr; align-items:flex-start">
+      <aside class="card" id="sidebar">
+        <div class="profile-card">
+          <img id="company-logo" class="logo" style="width:52px;height:52px;border-radius:12px" src="" alt="" />
+          <div style="flex:1">
+            <div class="profile-name" id="company-name" data-testid="company-name"></div>
+            <div class="profile-city" id="company-city" data-testid="company-city"></div>
+          </div>
+        </div>
+
+        <nav class="panel-menu" data-testid="panel-menu">
+          <button data-section="jobs" class="active" data-testid="menu-jobs">Posted jobs <span>›</span></button>
+          <button data-section="candidates" data-testid="menu-candidates">Candidates <span>›</span></button>
+          <button data-section="reviews" class="group-gap" data-testid="menu-reviews">Reviews received <span>›</span></button>
+          <button data-section="profile" class="group-gap" data-testid="menu-profile">Company profile <span>›</span></button>
+          <button data-section="settings" data-testid="menu-settings">Account settings <span>›</span></button>
+          <button id="logout-btn" class="group-gap" data-testid="menu-logout">Sign out <span>↪</span></button>
+        </nav>
+      </aside>
+
+      <div>
+        <!-- Posted jobs -->
+        <section class="card panel-section" id="section-jobs" data-testid="section-jobs">
+          <div class="pill-row" style="justify-content:space-between">
+            <h2>Posted jobs</h2>
+            <div class="pill-row">
+              <a href="/api/download/applicants.csv" data-testid="download-csv">⬇️ Export candidates (CSV)</a>
+              <button id="new-job-btn" data-testid="new-job-btn">+ New job</button>
+            </div>
+          </div>
+
+          <table class="mt-8" id="jobs-table" data-testid="jobs-table">
+            <thead>
+              <tr><th>Title</th><th>Area</th><th>Model</th><th>Status</th><th>Applications</th><th></th></tr>
+            </thead>
+            <tbody id="jobs-tbody"></tbody>
+          </table>
+          <p id="no-jobs" class="muted hidden" data-testid="no-jobs">You haven't posted any jobs yet.</p>
+
+          <form id="job-form" class="hidden mt-16" data-testid="job-form">
+            <input type="hidden" id="job-id" />
+            <h3 id="job-form-title">New job</h3>
+            <label for="job-title">Title</label>
+            <input id="job-title" type="text" required data-testid="job-title-input" />
+            <div class="grid-2">
+              <div>
+                <label for="job-area">Area</label>
+                <select id="job-area" data-testid="job-area-input"></select>
+              </div>
+              <div>
+                <label for="job-seniority">Level</label>
+                <select id="job-seniority" data-testid="job-seniority-input">
+                  <option>Intern</option><option>Junior</option><option selected>Mid-level</option><option>Senior</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <label for="job-contract">Contract</label>
+                <select id="job-contract" data-testid="job-contract-input">
+                  <option>Full-time</option><option>Contractor</option><option>Internship</option><option>Temporary</option>
+                </select>
+              </div>
+              <div>
+                <label for="job-workmodel">Model</label>
+                <select id="job-workmodel" data-testid="job-workmodel-input">
+                  <option>On-site</option><option>Hybrid</option><option>Remote</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <label for="job-city">City</label>
+                <input id="job-city" type="text" data-testid="job-city-input" />
+              </div>
+              <div>
+                <label for="job-salary">Salary (or "Negotiable")</label>
+                <input id="job-salary" type="text" data-testid="job-salary-input" />
+              </div>
+            </div>
+            <label for="job-status">Status</label>
+            <select id="job-status" data-testid="job-status-input">
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </select>
+            <label for="job-description">Description</label>
+            <textarea id="job-description" rows="3" data-testid="job-description-input"></textarea>
+            <label for="job-requirements">Requirements</label>
+            <textarea id="job-requirements" rows="2" data-testid="job-requirements-input"></textarea>
+            <div class="pill-row mt-8">
+              <button type="submit" data-testid="job-save">Save job</button>
+              <button type="button" class="secondary" id="job-cancel" data-testid="job-cancel">Cancel</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Candidates (kanban) -->
+        <section class="card panel-section hidden" id="section-candidates" data-testid="section-candidates">
+          <h2>Candidates per job</h2>
+          <label for="kanban-job-select">Select a job</label>
+          <select id="kanban-job-select" data-testid="kanban-job-select"></select>
+
+          <div class="kanban mt-16" id="kanban-board" data-testid="kanban-board">
+            <div class="kanban-col" data-status="received"><h3>Received</h3><div class="kanban-items" data-testid="kanban-col-received"></div></div>
+            <div class="kanban-col" data-status="in_review"><h3>In review</h3><div class="kanban-items" data-testid="kanban-col-in_review"></div></div>
+            <div class="kanban-col" data-status="interview"><h3>Interview</h3><div class="kanban-items" data-testid="kanban-col-interview"></div></div>
+            <div class="kanban-col" data-status="approved"><h3>Approved</h3><div class="kanban-items" data-testid="kanban-col-approved"></div></div>
+            <div class="kanban-col" data-status="rejected"><h3>Rejected</h3><div class="kanban-items" data-testid="kanban-col-rejected"></div></div>
+          </div>
+          <p id="no-candidates" class="muted hidden mt-8" data-testid="no-candidates">No applications received for this job yet.</p>
+          <p class="muted mt-16">QA tip: drag cards between columns to test drag &amp; drop (each drop triggers <code>PATCH /api/applications/:id</code>).</p>
+        </section>
+
+        <!-- Reviews received -->
+        <section class="card panel-section hidden" id="section-reviews" data-testid="section-reviews">
+          <h2>Reviews received</h2>
+          <div class="pill-row" style="gap:6px">
+            <star-rating id="company-stars" readonly value="0"></star-rating>
+            <span class="muted" id="company-rating-text" data-testid="company-rating-text"></span>
+          </div>
+          <div id="reviews-list" class="mt-16" data-testid="reviews-list"></div>
+          <p id="no-reviews" class="muted hidden" data-testid="no-reviews">Your company hasn't received any reviews yet.</p>
+        </section>
+
+        <!-- Company profile -->
+        <section class="card panel-section hidden" id="section-profile" data-testid="section-profile">
+          <h2>Company profile</h2>
+          <form id="company-form">
+            <label for="c-name">Name</label>
+            <input id="c-name" type="text" required data-testid="c-name" />
+            <div class="grid-2">
+              <div>
+                <label for="c-sector">Sector</label>
+                <input id="c-sector" type="text" data-testid="c-sector" />
+              </div>
+              <div>
+                <label for="c-city">City</label>
+                <input id="c-city" type="text" data-testid="c-city" />
+              </div>
+            </div>
+            <label for="c-description">Description</label>
+            <textarea id="c-description" rows="4" data-testid="c-description"></textarea>
+            <button type="submit" class="mt-16" data-testid="company-save">Save profile</button>
+            <span id="company-status" class="muted" data-testid="company-status" style="margin-left:12px"></span>
+          </form>
+        </section>
+
+        <!-- Account settings -->
+        <section class="card panel-section hidden" id="section-settings" data-testid="section-settings">
+          <h2>Account settings</h2>
+          <form id="account-form">
+            <label for="acc-name">Contact person's name</label>
+            <input id="acc-name" type="text" required data-testid="acc-name" />
+            <label for="acc-email">Email</label>
+            <input id="acc-email" type="email" disabled data-testid="acc-email" />
+            <button type="submit" class="mt-16" data-testid="account-save">Save</button>
+            <span id="account-status" class="muted" data-testid="account-status" style="margin-left:12px"></span>
+          </form>
+
+          <h3 class="mt-24">Change password</h3>
+          <form id="password-form">
+            <label for="pwd-current">Current password</label>
+            <input id="pwd-current" type="password" data-testid="pwd-current" />
+            <label for="pwd-new">New password</label>
+            <input id="pwd-new" type="password" minlength="6" data-testid="pwd-new" />
+            <button type="submit" class="mt-16" data-testid="password-save">Change password</button>
+            <span id="password-status" class="muted" data-testid="password-status" style="margin-left:12px"></span>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <p id="not-authed" class="card hidden" data-testid="not-authed">
+    You need to sign in with a company account to see this dashboard. <a href="/pages/entrar.html">Sign in</a>
+  </p>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    let me = null;
+    let myJobs = [];
+    const AREAS = ["Technology", "Procurement", "Operations", "Finance", "Consulting", "Human Resources", "Design", "Marketing", "Logistics", "Healthcare", "Customer Service", "Education", "Engineering"];
+    document.getElementById("job-area").append(...AREAS.map((a) => new Option(a, a)));
+
+    document.querySelectorAll(".panel-menu button[data-section]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".panel-menu button[data-section]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".panel-section").forEach((s) => s.classList.add("hidden"));
+        document.getElementById(`section-${btn.dataset.section}`).classList.remove("hidden");
+        if (btn.dataset.section === "candidates") loadKanban();
+      });
+    });
+
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await QA.api("/api/auth/logout", { method: "POST" });
+      location.href = "/";
+    });
+
+    // ---------- jobs ----------
+    function jobRow(j) {
+      const tr = document.createElement("tr");
+      tr.dataset.testid = "job-row";
+      tr.innerHTML = `
+        <td>${Store.escapeHtml(j.title)}</td>
+        <td>${Store.escapeHtml(j.area)}</td>
+        <td>${Store.escapeHtml(j.workModel)}</td>
+        <td><span class="badge ${j.status === "open" ? "ok" : "err"}" data-testid="job-status-badge">${j.status}</span></td>
+        <td id="job-app-count-${j.id}">…</td>
+        <td class="pill-row">
+          <button class="secondary" data-testid="job-edit">Edit</button>
+          <button class="secondary" data-testid="job-delete">Delete</button>
+        </td>`;
+      tr.querySelector("[data-testid=job-edit]").addEventListener("click", () => openJobForm(j));
+      tr.querySelector("[data-testid=job-delete]").addEventListener("click", async () => {
+        await QA.api(`/api/jobs/${j.id}`, { method: "DELETE" });
+        Store.toast("Job deleted");
+        await loadJobs();
+      });
+      return tr;
+    }
+
+    async function loadJobs() {
+      const { ok, body } = await QA.api(`/api/companies/${me.companyId}/jobs`);
+      if (!ok) return;
+      myJobs = body.data;
+      const tbody = document.getElementById("jobs-tbody");
+      tbody.innerHTML = "";
+      myJobs.forEach((j) => tbody.appendChild(jobRow(j)));
+      document.getElementById("no-jobs").classList.toggle("hidden", myJobs.length > 0);
+
+      const select = document.getElementById("kanban-job-select");
+      const prev = select.value;
+      select.innerHTML = "";
+      myJobs.forEach((j) => select.append(new Option(j.title, j.id)));
+      if (prev) select.value = prev;
+
+      myJobs.forEach(async (j) => {
+        const { ok: ok2, body: body2 } = await QA.api(`/api/jobs/${j.id}/applications`);
+        const cell = document.getElementById(`job-app-count-${j.id}`);
+        if (cell) cell.textContent = ok2 ? body2.data.length : "—";
+      });
+    }
+
+    function openJobForm(job) {
+      document.getElementById("job-form").classList.remove("hidden");
+      document.getElementById("job-form-title").textContent = job ? "Edit job" : "New job";
+      document.getElementById("job-id").value = job ? job.id : "";
+      document.getElementById("job-title").value = job ? job.title : "";
+      document.getElementById("job-area").value = job ? job.area : AREAS[0];
+      document.getElementById("job-seniority").value = job ? job.seniority : "Mid-level";
+      document.getElementById("job-contract").value = job ? job.contractType : "Full-time";
+      document.getElementById("job-workmodel").value = job ? job.workModel : "On-site";
+      document.getElementById("job-city").value = job ? job.city : "";
+      document.getElementById("job-salary").value = job ? job.salary : "Negotiable";
+      document.getElementById("job-status").value = job ? job.status : "open";
+      document.getElementById("job-description").value = job ? job.description : "";
+      document.getElementById("job-requirements").value = job ? job.requirements : "";
+    }
+
+    document.getElementById("new-job-btn").addEventListener("click", () => openJobForm(null));
+    document.getElementById("job-cancel").addEventListener("click", () => document.getElementById("job-form").classList.add("hidden"));
+
+    document.getElementById("job-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const id = document.getElementById("job-id").value;
+      const payload = {
+        title: document.getElementById("job-title").value.trim(),
+        area: document.getElementById("job-area").value,
+        seniority: document.getElementById("job-seniority").value,
+        contractType: document.getElementById("job-contract").value,
+        workModel: document.getElementById("job-workmodel").value,
+        city: document.getElementById("job-city").value.trim(),
+        salary: document.getElementById("job-salary").value.trim(),
+        status: document.getElementById("job-status").value,
+        description: document.getElementById("job-description").value.trim(),
+        requirements: document.getElementById("job-requirements").value.trim(),
+      };
+      const { ok, body } = id
+        ? await QA.api(`/api/jobs/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+        : await QA.api("/api/jobs", { method: "POST", body: JSON.stringify(payload) });
+      if (!ok) { Store.toast((body && body.message) || "Couldn't save the job", "err"); return; }
+      Store.toast(id ? "Job updated" : "Job posted!");
+      document.getElementById("job-form").classList.add("hidden");
+      await loadJobs();
+    });
+
+    // ---------- kanban ----------
+    function candidateCard(a) {
+      const el = document.createElement("div");
+      el.className = "candidate-card";
+      el.draggable = true;
+      el.dataset.id = a.id;
+      el.dataset.testid = "candidate-card";
+      el.innerHTML = `<div class="cname">${a.candidate ? a.candidate.name : "Candidate"}</div><div class="muted">${a.candidate ? a.candidate.city || "" : ""}</div>`;
+      el.addEventListener("dragstart", () => el.classList.add("dragging"));
+      el.addEventListener("dragend", () => el.classList.remove("dragging"));
+      return el;
+    }
+
+    document.querySelectorAll(".kanban-col").forEach((col) => {
+      col.addEventListener("dragover", (ev) => { ev.preventDefault(); col.classList.add("dragover"); });
+      col.addEventListener("dragleave", () => col.classList.remove("dragover"));
+      col.addEventListener("drop", async (ev) => {
+        ev.preventDefault();
+        col.classList.remove("dragover");
+        const dragging = document.querySelector(".candidate-card.dragging");
+        if (!dragging) return;
+        const newStatus = col.dataset.status;
+        col.querySelector(".kanban-items").appendChild(dragging);
+        const { ok } = await QA.api(`/api/applications/${dragging.dataset.id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
+        if (ok) Store.toast("Application status updated"); else Store.toast("Couldn't update the status", "err");
+      });
+    });
+
+    async function loadKanban() {
+      const jobId = document.getElementById("kanban-job-select").value;
+      document.querySelectorAll(".kanban-items").forEach((el) => (el.innerHTML = ""));
+      if (!jobId) return;
+      const { ok, body } = await QA.api(`/api/jobs/${jobId}/applications`);
+      if (!ok) return;
+      document.getElementById("no-candidates").classList.toggle("hidden", body.data.length > 0);
+      body.data.forEach((a) => {
+        const col = document.querySelector(`.kanban-col[data-status="${a.status}"] .kanban-items`);
+        if (col) col.appendChild(candidateCard(a));
+      });
+    }
+    document.getElementById("kanban-job-select").addEventListener("change", loadKanban);
+
+    // ---------- reviews ----------
+    function reviewCard(r) {
+      const el = document.createElement("div");
+      el.className = "card mt-8";
+      el.dataset.testid = "review-card";
+      el.innerHTML = `
+        <div class="pill-row" style="justify-content:space-between">
+          <strong>${r.author}</strong>
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US")}</span>
+        </div>
+        <star-rating readonly value="${r.rating}"></star-rating>
+        ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}
+        <p class="mt-8">${r.comment}</p>`;
+      return el;
+    }
+    async function loadReviews() {
+      const { ok, body } = await QA.api(`/api/companies/${me.companyId}/reviews`);
+      const { body: companyBody } = await QA.api(`/api/companies/${me.companyId}`);
+      if (companyBody) {
+        document.getElementById("company-stars").value = companyBody.data.rating.average || 0;
+        document.getElementById("company-rating-text").textContent = companyBody.data.rating.count
+          ? `${companyBody.data.rating.average} out of 5 (${companyBody.data.rating.count} review${companyBody.data.rating.count > 1 ? "s" : ""})`
+          : "No reviews yet";
+      }
+      if (!ok) return;
+      const list = document.getElementById("reviews-list");
+      list.innerHTML = "";
+      body.data.forEach((r) => list.appendChild(reviewCard(r)));
+      document.getElementById("no-reviews").classList.toggle("hidden", body.data.length > 0);
+    }
+
+    // ---------- company profile ----------
+    async function loadCompanyProfile() {
+      const { ok, body } = await QA.api(`/api/companies/${me.companyId}`);
+      if (!ok) return;
+      const c = body.data;
+      document.getElementById("company-logo").src = c.logo;
+      document.getElementById("company-name").textContent = c.name;
+      document.getElementById("company-city").textContent = c.city;
+      document.getElementById("c-name").value = c.name;
+      document.getElementById("c-sector").value = c.sector;
+      document.getElementById("c-city").value = c.city;
+      document.getElementById("c-description").value = c.description || "";
+    }
+    document.getElementById("company-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const payload = {
+        name: document.getElementById("c-name").value.trim(),
+        sector: document.getElementById("c-sector").value.trim(),
+        city: document.getElementById("c-city").value.trim(),
+        description: document.getElementById("c-description").value.trim(),
+      };
+      const { ok, body } = await QA.api(`/api/companies/${me.companyId}`, { method: "PUT", body: JSON.stringify(payload) });
+      document.getElementById("company-status").textContent = ok ? "Profile saved ✅" : (body && body.message) || "Error saving profile";
+      if (ok) await loadCompanyProfile();
+    });
+
+    // ---------- account settings ----------
+    document.getElementById("account-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const payload = { name: document.getElementById("acc-name").value.trim() };
+      const { ok, body } = await QA.api("/api/users/me", { method: "PATCH", body: JSON.stringify(payload) });
+      document.getElementById("account-status").textContent = ok ? "Changes saved ✅" : (body && body.message) || "Error saving changes";
+    });
+    document.getElementById("password-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const payload = { currentPassword: document.getElementById("pwd-current").value, newPassword: document.getElementById("pwd-new").value };
+      const { ok, body } = await QA.api("/api/users/me", { method: "PATCH", body: JSON.stringify(payload) });
+      document.getElementById("password-status").textContent = ok ? "Password changed ✅" : (body && body.message) || "Error changing password";
+      if (ok) document.getElementById("password-form").reset();
+    });
+
+    (async function init() {
+      const { ok, body } = await QA.api("/api/auth/me");
+      if (!ok || body.data.role !== "employer") {
+        document.getElementById("not-authed").classList.remove("hidden");
+        return;
+      }
+      me = body.data;
+      document.getElementById("acc-name").value = me.name;
+      document.getElementById("acc-email").value = me.email;
+      document.getElementById("guard-wrap").classList.remove("hidden");
+      await loadCompanyProfile();
+      await loadJobs();
+      await loadReviews();
+    })();
+  </script>
+</body>
+</html>

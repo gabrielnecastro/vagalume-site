@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Courses — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <nav class="breadcrumb"><a href="/">Home</a> / Courses</nav>
+    <h1>Courses to boost your career</h1>
+    <p class="lead">Short, practical courses for anyone getting ready for their next job.</p>
+
+    <div class="mt-16">
+      <input type="search" id="search-input" placeholder="Search courses, instructors..." data-testid="course-search" />
+    </div>
+
+    <div class="pill-row filters-row mt-8">
+      <select id="category-filter" data-testid="category-filter"><option value="">All categories</option></select>
+      <select id="level-filter" data-testid="level-filter">
+        <option value="">All levels</option>
+        <option>Beginner</option>
+        <option>Intermediate</option>
+        <option>Advanced</option>
+      </select>
+      <select id="sort-filter" data-testid="sort-filter">
+        <option value="id-asc">Most relevant</option>
+        <option value="price-asc">Lowest price</option>
+        <option value="price-desc">Highest price</option>
+        <option value="title-asc">Name (A-Z)</option>
+      </select>
+    </div>
+
+    <p class="muted mt-8" id="results-count" data-testid="results-count"></p>
+
+    <div class="course-grid mt-8" id="course-grid" data-testid="course-grid"></div>
+    <p id="empty-state" class="muted hidden" data-testid="empty-state">No courses found with these filters.</p>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const CATEGORIES = ["Technology", "Productivity", "Career", "Languages", "Design", "Marketing", "Data", "Management", "Sales"];
+    const catSelect = document.getElementById("category-filter");
+    CATEGORIES.forEach((c) => { const o = document.createElement("option"); o.value = c; o.textContent = c; catSelect.appendChild(o); });
+
+    function priceBlock(c) {
+      if (c.price === 0) return `<div class="course-price"><span class="free">Free</span></div>`;
+      const original = c.originalPrice ? `<span class="original">R$ ${c.originalPrice.toFixed(2)}</span>` : "";
+      return `<div class="course-price"><span class="current">R$ ${c.price.toFixed(2)}</span>${original}</div>`;
+    }
+
+    function courseCard(c) {
+      const wrap = document.createElement("div");
+      wrap.className = "course-card";
+      wrap.dataset.testid = "course-card";
+      const inCart = Store.inCart(c.id);
+      wrap.innerHTML = `
+        <a href="/pages/curso.html?id=${c.id}">
+          <img class="thumb" src="${c.image}" alt="${c.title}" loading="lazy" />
+        </a>
+        <div class="body">
+          <span class="category">${c.category} · ${c.level}</span>
+          <a href="/pages/curso.html?id=${c.id}" style="color:inherit;text-decoration:none">
+            <div class="title">${c.title}</div>
+          </a>
+          <div class="instructor">${c.instructor}</div>
+          <div class="rating">★ ${c.rating.average} <span class="muted">(${c.rating.count})</span></div>
+          ${priceBlock(c)}
+        </div>
+        <button class="add-to-cart ${inCart ? "in-cart secondary" : ""}" data-id="${c.id}" data-testid="add-to-cart-btn">${inCart ? "✓ In cart" : "Add to cart"}</button>`;
+      wrap.querySelector(".add-to-cart").addEventListener("click", () => {
+        const btn = wrap.querySelector(".add-to-cart");
+        if (Store.inCart(c.id)) { location.href = "/pages/carrinho.html"; return; }
+        Store.addToCart(c.id);
+        btn.textContent = "✓ In cart";
+        btn.classList.add("in-cart", "secondary");
+        Store.toast(`"${c.title}" added to cart`);
+      });
+      return wrap;
+    }
+
+    function currentSort() {
+      const [sort, order] = document.getElementById("sort-filter").value.split("-");
+      return { sort, order };
+    }
+
+    async function load() {
+      const { sort, order } = currentSort();
+      const query = new URLSearchParams({ limit: 50, sort, order });
+      const q = document.getElementById("search-input").value.trim();
+      const category = document.getElementById("category-filter").value;
+      const level = document.getElementById("level-filter").value;
+      if (q) query.set("q", q);
+      if (category) query.set("category", category);
+      if (level) query.set("level", level);
+
+      const { body } = await QA.api(`/api/courses?${query}`);
+      const grid = document.getElementById("course-grid");
+      grid.innerHTML = "";
+      body.data.forEach((c) => grid.appendChild(courseCard(c)));
+      document.getElementById("results-count").textContent = `${body.meta.total} course(s) found`;
+      document.getElementById("empty-state").classList.toggle("hidden", body.meta.total > 0);
+    }
+
+    let debounceTimer;
+    function reload() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(load, 250);
+    }
+    document.getElementById("search-input").addEventListener("input", reload);
+    ["category-filter", "level-filter", "sort-filter"].forEach((id) => document.getElementById(id).addEventListener("change", load));
+
+    load();
+  </script>
+</body>
+</html>

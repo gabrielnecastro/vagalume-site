@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Admin Panel · Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/"><img src="/img/logo-icon.png" alt="Vagalume" class="brand-icon" /><span>Vagalume</span></a>
+      <span class="muted">Admin panel (protected by HTTP Basic Auth)</span>
+      <nav class="header-nav"><button class="theme-toggle" id="theme-toggle" data-testid="theme-toggle" aria-label="Toggle theme" title="Toggle theme"></button><a href="/">← Back to site</a></nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>Admin panel</h1>
+
+    <div class="card">
+      <h2 style="margin-top:0">Operational actions</h2>
+      <div class="pill-row">
+        <button id="sync-feed" data-testid="admin-sync-feed">Resync job feed</button>
+        <button id="reprocess-applications" class="secondary" data-testid="admin-reprocess-applications">Reprocess applications</button>
+        <button id="test-webhook" class="secondary" data-testid="admin-test-webhook">Test webhook</button>
+      </div>
+      <p id="action-result" class="mt-16" data-testid="admin-action-result"></p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Registered companies</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Sector</th><th>City</th></tr></thead>
+        <tbody id="companies-body" data-testid="admin-companies-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Posted jobs</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Title</th><th>Company</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="jobs-body" data-testid="admin-jobs-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Published reviews</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Author</th><th>Rating</th><th>Comment</th><th>Actions</th></tr></thead>
+        <tbody id="reviews-body" data-testid="admin-reviews-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Marketplace courses</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Price</th><th>Actions</th></tr></thead>
+        <tbody id="courses-body" data-testid="admin-courses-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Course orders</h2>
+      <table>
+        <thead><tr><th>Order</th><th>User</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody id="course-orders-body" data-testid="admin-course-orders-body"></tbody>
+      </table>
+      <p id="course-orders-empty" class="muted hidden mt-8">No course orders yet.</p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    (function(){
+      function effectiveTheme(){ return document.documentElement.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark":"light"); }
+      function reflect(){ var b=document.getElementById("theme-toggle"); if(!b) return; var dark = effectiveTheme()==="dark"; b.textContent = dark ? "☀️" : "🌙"; b.title = dark ? "Switch to light theme" : "Switch to dark theme"; }
+      document.getElementById("theme-toggle").addEventListener("click", function(){
+        var next = effectiveTheme()==="dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("vagalume_theme", next);
+        reflect();
+      });
+      reflect();
+    })();
+
+    async function loadCompanies() {
+      const { body } = await QA.api("/api/admin/companies");
+      const tbody = document.getElementById("companies-body");
+      tbody.innerHTML = "";
+      body.data.forEach((c) => {
+        const tr = document.createElement("tr");
+        tr.dataset.testid = "admin-company-row";
+        tr.innerHTML = `<td>${c.id}</td><td>${c.name}</td><td>${c.sector}</td><td>${c.city}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadJobs() {
+      const { body } = await QA.api("/api/admin/jobs");
+      const tbody = document.getElementById("jobs-body");
+      tbody.innerHTML = "";
+      body.data.forEach((j) => {
+        const tr = document.createElement("tr");
+        tr.dataset.testid = "admin-job-row";
+        tr.innerHTML = `
+          <td>${j.id}</td><td>${j.title}</td><td>${j.company ? j.company.name : ""}</td>
+          <td><span class="badge ${j.status === "open" ? "ok" : "err"}">${j.status}</span></td>
+          <td><button class="danger" data-del="${j.id}" data-testid="admin-job-delete">delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll("[data-del]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          await QA.api(`/api/admin/jobs/${b.dataset.del}`, { method: "DELETE" });
+          loadJobs();
+        })
+      );
+    }
+
+    async function loadReviews() {
+      const { body } = await QA.api("/api/admin/reviews");
+      const tbody = document.getElementById("reviews-body");
+      tbody.innerHTML = "";
+      body.data.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.dataset.testid = "admin-review-row";
+        tr.innerHTML = `
+          <td>${r.id}</td><td>${r.author}</td><td>${r.rating} ★</td><td>${r.comment}</td>
+          <td><button class="danger" data-del="${r.id}" data-testid="admin-review-delete">delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll("[data-del]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          await QA.api(`/api/admin/reviews/${b.dataset.del}`, { method: "DELETE" });
+          loadReviews();
+        })
+      );
+    }
+
+    async function loadCourses() {
+      const { body } = await QA.api("/api/admin/courses");
+      const tbody = document.getElementById("courses-body");
+      tbody.innerHTML = "";
+      body.data.forEach((c) => {
+        const tr = document.createElement("tr");
+        tr.dataset.testid = "admin-course-row";
+        tr.innerHTML = `
+          <td>${c.id}</td><td>${c.title}</td><td>${c.category}</td>
+          <td>${c.price === 0 ? "Free" : `R$ ${c.price.toFixed(2)}`}</td>
+          <td><button class="danger" data-del="${c.id}" data-testid="admin-course-delete">delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll("[data-del]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          await QA.api(`/api/admin/courses/${b.dataset.del}`, { method: "DELETE" });
+          loadCourses();
+        })
+      );
+    }
+
+    async function loadCourseOrders() {
+      const { body } = await QA.api("/api/admin/course-orders");
+      const tbody = document.getElementById("course-orders-body");
+      tbody.innerHTML = "";
+      document.getElementById("course-orders-empty").classList.toggle("hidden", body.data.length > 0);
+      body.data.forEach((o) => {
+        const tr = document.createElement("tr");
+        tr.dataset.testid = "admin-course-order-row";
+        tr.innerHTML = `
+          <td>#${o.id}</td><td>${o.userName}</td><td>${o.items.length} course(s)</td>
+          <td>R$ ${o.total.toFixed(2)}</td><td><span class="badge ok">${o.status}</span></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function setResult(text, type) {
+      const el = document.getElementById("action-result");
+      el.textContent = text;
+      el.className = "mt-16 badge " + type;
+    }
+
+    document.getElementById("sync-feed").addEventListener("click", async () => {
+      setResult("Resyncing (this can take a few seconds)...", "warn");
+      const { ok, body } = await QA.api("/api/admin/sync-feed", { method: "POST" });
+      setResult(body.message, ok ? "ok" : "err");
+    });
+
+    document.getElementById("reprocess-applications").addEventListener("click", async () => {
+      setResult("Reprocessing...", "warn");
+      const { ok, body } = await QA.api("/api/admin/reprocess-applications", { method: "POST" });
+      setResult(ok ? `Reprocessed: ${body.reprocessed}` : body.message, ok ? "ok" : "err");
+    });
+
+    document.getElementById("test-webhook").addEventListener("click", async () => {
+      const { ok, status, body } = await QA.api("/api/admin/test-webhook", { method: "POST" });
+      setResult(ok ? "Webhook OK" : `${status}: ${body.message}`, ok ? "ok" : "err");
+    });
+
+    loadCompanies();
+    loadJobs();
+    loadReviews();
+    loadCourses();
+    loadCourseOrders();
+  </script>
+</body>
+</html>

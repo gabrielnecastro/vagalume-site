@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Companies — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <h1>Companies on Vagalume</h1>
+    <p class="lead">Discover who's hiring and follow the companies that match your interests.</p>
+
+    <input type="search" id="search-input" placeholder="Search company by name, sector, or city..." data-testid="company-search" class="mt-8" />
+
+    <div class="company-grid mt-16" id="company-grid" data-testid="company-grid"></div>
+    <p id="empty-state" class="muted hidden" data-testid="empty-state">No companies found.</p>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    let allCompanies = [];
+
+    function companyCard(c) {
+      const a = document.createElement("a");
+      a.href = `/pages/empresa.html?id=${c.id}`;
+      a.className = "company-card";
+      a.dataset.testid = "company-card";
+      a.innerHTML = `
+        <img src="${Store.escapeHtml(c.logo)}" alt="${Store.escapeHtml(c.name)}" loading="lazy" />
+        <strong>${Store.escapeHtml(c.name)}</strong>
+        <span class="muted" style="font-size:0.85rem">${Store.escapeHtml(c.sector)}</span>
+        <span class="muted" style="font-size:0.8rem">${Store.escapeHtml(c.city)}</span>
+        <span class="badge ok">${c.rating.count ? `★ ${c.rating.average}` : "No reviews"}</span>`;
+      return a;
+    }
+
+    function render(list) {
+      const grid = document.getElementById("company-grid");
+      grid.innerHTML = "";
+      list.forEach((c) => grid.appendChild(companyCard(c)));
+      document.getElementById("empty-state").classList.toggle("hidden", list.length > 0);
+    }
+
+    document.getElementById("search-input").addEventListener("input", (ev) => {
+      const needle = ev.target.value.trim().toLowerCase();
+      const filtered = !needle
+        ? allCompanies
+        : allCompanies.filter((c) => c.name.toLowerCase().includes(needle) || c.sector.toLowerCase().includes(needle) || c.city.toLowerCase().includes(needle));
+      render(filtered);
+    });
+
+    (async function init() {
+      const { ok, body } = await QA.api("/api/companies");
+      if (ok) {
+        allCompanies = body.data;
+        render(allCompanies);
+      }
+    })();
+  </script>
+</body>
+</html>

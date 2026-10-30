@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>QA Guide · Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <nav class="breadcrumb"><a href="/">Home</a> / QA Guide</nav>
+    <h1>Guide for people testing this site</h1>
+    <p class="lead">
+      Vagalume is a <strong>fictional</strong> job platform: on the surface it behaves like an ordinary
+      recruitment site, but each flow was designed to exercise a particular kind of test. This page is just a
+      reference — it isn't part of the site's "normal navigation".
+    </p>
+
+    <div class="card">
+      <h2 style="margin-top:0">Credentials</h2>
+      <table>
+        <tbody>
+          <tr><td>Candidate account</td><td><code>candidato@vagalume.test</code> / <code>demo123</code></td></tr>
+          <tr><td>Other candidates (authors of the example reviews)</td><td><code>fernanda@example.com</code> / <code>pass123</code> and <code>ricardo@example.com</code> / <code>pass123</code></td></tr>
+          <tr><td>Company account (Nimbus Tech)</td><td><code>empresa@vagalume.test</code> / <code>demo123</code></td></tr>
+          <tr><td>Second company account (Arctic Games)</td><td><code>empresa2@vagalume.test</code> / <code>demo123</code></td></tr>
+          <tr><td>Admin panel (HTTP Basic Auth) — <code>/admin</code></td><td><code>admin</code> / <code>admin123</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Where to find each UI scenario (Cypress / Playwright)</h2>
+      <table>
+        <thead><tr><th>Scenario</th><th>Where it is</th></tr></thead>
+        <tbody>
+          <tr><td>Full form + validation</td><td>Sign-up with profile selection (/pages/entrar.html)</td></tr>
+          <tr><td>Login with httpOnly cookie, two roles</td><td>/pages/entrar.html</td></tr>
+          <tr><td>Search, filters, sorting, infinite scroll</td><td>Home page (/) — job list</td></tr>
+          <tr><td>Table with CRUD</td><td>Jobs posted in the employer dashboard (/pages/empresa/painel.html)</td></tr>
+          <tr><td>Drag & drop (kanban)</td><td>Candidates per job in the employer dashboard</td></tr>
+          <tr><td>File upload</td><td>Resume (candidate dashboard), logo/photo (generic uploads)</td></tr>
+          <tr><td>File download</td><td>Export candidates as CSV in the employer dashboard</td></tr>
+          <tr><td>Dashboard with side menu (SPA-like)</td><td>/pages/candidato/painel.html and /pages/empresa/painel.html</td></tr>
+          <tr><td>Reviews with rating + comment</td><td>Job page (/pages/vaga.html) — reviews section</td></tr>
+          <tr><td>Follow/unfollow</td><td>Company page (/pages/empresa.html) and "Followed companies" in the dashboard</td></tr>
+          <tr><td>Marketplace with cart (localStorage)</td><td>/pages/cursos.html, /pages/curso.html, /pages/carrinho.html</td></tr>
+          <tr><td>Discount coupon (with rate limit)</td><td>Course cart — try <code>STUDENT10</code>, <code>LAUNCH20</code>, or more than 5 attempts in a row</td></tr>
+          <tr><td>Checkout with simulated gateway (latency + failure)</td><td>/pages/checkout-curso.html → ~15% chance of a 502 failure</td></tr>
+          <tr><td>R$ 0.00 price / free item</td><td>"How to Prepare for Job Interviews" course (id 4)</td></tr>
+          <tr><td>Business conflict (409)</td><td>Buying again a course you're already enrolled in</td></tr>
+          <tr><td>Broken image</td><td>"English for International Interviews" course (id 5) intentionally has an invalid image</td></tr>
+          <tr><td>iFrame</td><td>Company video on /pages/ajuda.html</td></tr>
+          <tr><td>Shadow DOM</td><td>Rating stars (&lt;star-rating&gt;) on several pages</td></tr>
+          <tr><td>Loading state / slow request</td><td>"Resync feed" in /admin (2.5–4s)</td></tr>
+          <tr><td>Random failure (retry)</td><td>"Reprocess applications" in /admin fails ~35% of the time</td></tr>
+          <tr><td>Rate limit (429)</td><td>"Test webhook" in /admin (5 every 10s)</td></tr>
+          <tr><td>Redirect (302)</td><td><code>/vaga-antiga/1</code> → redirects to the current job</td></tr>
+          <tr><td>404 page</td><td>Any nonexistent URL</td></tr>
+          <tr><td>Cookie consent / localStorage</td><td>Cookie banner (footer) + theme preference</td></tr>
+          <tr><td>Native HTTP Basic Auth</td><td><code>/admin</code> or <code>/basic-auth</code></td></tr>
+          <tr><td>Empty states / permissions (403)</td><td>Applying while logged out, editing another company's job, a company calling candidate-only routes</td></tr>
+          <tr><td>Invalid JSON body (400)</td><td>Any API route with a malformed JSON body returns 400 <code>invalid_json</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">API endpoints (k6 / Karate)</h2>
+      <p>Full documentation, with every field and response, and requests you can run from the browser: <a href="/api-docs" data-testid="qa-docs-swagger-link">Swagger (/api-docs)</a>.</p>
+      <table>
+        <thead><tr><th>Method</th><th>Route</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td>/api/health</td><td>healthcheck</td></tr>
+          <tr><td>POST</td><td>/api/auth/register</td><td>creates a candidate or employer account ("role" field)</td></tr>
+          <tr><td>POST</td><td>/api/auth/login</td><td>login (session cookie)</td></tr>
+          <tr><td>GET</td><td>/api/auth/me</td><td>protected by cookie</td></tr>
+          <tr><td>PATCH</td><td>/api/users/me</td><td>updates name, city, and password</td></tr>
+          <tr><td>GET</td><td>/api/companies</td><td>lists companies with aggregate rating</td></tr>
+          <tr><td>GET/PUT</td><td>/api/companies/:id</td><td>PUT restricted to the owner (employer)</td></tr>
+          <tr><td>POST/DELETE</td><td>/api/companies/:id/follow</td><td>follow/unfollow (candidate)</td></tr>
+          <tr><td>GET/POST/PUT/DELETE</td><td>/api/jobs</td><td>CRUD, pagination, search, filters, sorting</td></tr>
+          <tr><td>GET/POST</td><td>/api/jobs/:id/reviews</td><td>POST requires the "candidate" role; rating must be a whole number from 1 to 5</td></tr>
+          <tr><td>DELETE</td><td>/api/reviews/:id</td><td>only the author can delete it</td></tr>
+          <tr><td>POST</td><td>/api/jobs/:id/apply</td><td>409 if already applied or the job is closed (<code>job_closed</code>)</td></tr>
+          <tr><td>GET</td><td>/api/applications/me</td><td>the logged-in candidate's applications</td></tr>
+          <tr><td>GET</td><td>/api/jobs/:id/applications</td><td>applications to a job, employer dashboard (kanban)</td></tr>
+          <tr><td>PATCH</td><td>/api/applications/:id</td><td>moves an application on the kanban ("status" field)</td></tr>
+          <tr><td>GET/POST</td><td>/api/users/me/experiences</td><td>candidate's resume: list and add experiences (candidate accounts only)</td></tr>
+          <tr><td>PUT/DELETE</td><td>/api/experiences/:id</td><td>edit or remove one experience (candidate accounts only)</td></tr>
+          <tr><td>GET/PUT</td><td>/api/users/me/preferences</td><td>job preferences (candidate accounts only)</td></tr>
+          <tr><td>POST</td><td>/api/upload</td><td>multipart/form-data, "file" field</td></tr>
+          <tr><td>POST</td><td>/api/users/me/resume</td><td>resume upload (candidate accounts only; .pdf, .doc, .docx up to 5 MB)</td></tr>
+          <tr><td>GET</td><td>/api/download/applicants.csv</td><td>CSV of candidates (employer)</td></tr>
+          <tr><td>GET</td><td>/api/courses</td><td>catalog — pagination, search, filters (category/level), sorting</td></tr>
+          <tr><td>GET</td><td>/api/courses/:id</td><td>course detail</td></tr>
+          <tr><td>GET</td><td>/api/users/me/enrollments</td><td>courses purchased by the logged-in user</td></tr>
+          <tr><td>POST</td><td>/api/courses/coupons/apply</td><td>rate limit: 5 attempts / 30s per IP</td></tr>
+          <tr><td>POST</td><td>/api/courses/checkout</td><td>requires login; simulates a gateway (latency + ~15% 502 failure rate); 409 if already enrolled</td></tr>
+          <tr><td>GET</td><td>/api/courses/orders/me</td><td>the logged-in user's order history</td></tr>
+          <tr><td>GET</td><td>/api/courses/orders/:id</td><td>detail of one order (owner only)</td></tr>
+          <tr><td>GET/POST/DELETE</td><td>/api/admin/*</td><td>protected by HTTP Basic Auth (includes /admin/courses and /admin/course-orders)</td></tr>
+          <tr><td>GET</td><td>/api/status/:code</td><td>forces any HTTP status (100–599)</td></tr>
+          <tr><td>GET</td><td>/api/slow?ms=3000</td><td>delayed response (up to 15000ms)</td></tr>
+          <tr><td>GET</td><td>/api/flaky?failRate=0.3</td><td>random failure (500)</td></tr>
+          <tr><td>GET</td><td>/api/rate-limited</td><td>429 after 5 requests / 10s per IP</td></tr>
+          <tr><td>GET</td><td>/api/redirect</td><td>302 → /api/redirect-target</td></tr>
+        </tbody>
+      </table>
+      <p class="hint mt-16">Every interactive element has a <code>data-testid</code> attribute to make selectors easier.</p>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+</body>
+</html>

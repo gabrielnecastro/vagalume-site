@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Purchase confirmed — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="narrow">
+    <div class="card" style="text-align:center">
+      <h1 data-testid="confirmation-title">🎉 Purchase confirmed!</h1>
+      <p class="lead" id="order-number" data-testid="order-number"></p>
+    </div>
+
+    <div class="card" id="order-details" data-testid="order-details"></div>
+
+    <div class="pill-row">
+      <a href="/pages/cursos.html"><button>Keep browsing</button></a>
+      <a href="/pages/candidato/painel.html"><button class="secondary">Go to my courses</button></a>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get("id");
+
+    QA.api(`/api/courses/orders/${id}`).then(({ ok, body }) => {
+      if (!ok) {
+        document.getElementById("order-number").textContent = "Order not found.";
+        return;
+      }
+      const order = body.data;
+      document.getElementById("order-number").textContent = `Order #${order.id} — status: ${order.status}`;
+      const details = document.getElementById("order-details");
+      details.innerHTML = `
+        <p><strong>Courses:</strong></p>
+        <ul>${order.items.map((i) => `<li>${i.title} — ${i.price === 0 ? "Free" : `R$ ${i.price.toFixed(2)}`}</li>`).join("")}</ul>
+        <p><strong>Payment:</strong> ${order.paymentMethod}</p>
+        <p><strong>Total:</strong> R$ ${order.total.toFixed(2)}</p>`;
+    });
+  </script>
+</body>
+</html>

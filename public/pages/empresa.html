@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Company — Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/star-rating.js" defer></script>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <p class="breadcrumb"><a href="/pages/empresas.html">Companies</a> / <span id="crumb-name">loading...</span></p>
+
+    <div id="company-wrap" class="hidden">
+      <section class="card">
+        <div class="pill-row" style="align-items:flex-start">
+          <img id="company-logo" class="logo" style="width:170px;height:170px" src="" alt="" />
+          <div style="flex:1">
+            <h1 id="company-name" data-testid="company-name"></h1>
+            <p class="muted" id="company-meta"></p>
+            <div class="pill-row" style="gap:6px">
+              <star-rating id="company-stars" readonly value="0"></star-rating>
+              <span class="muted" id="company-rating-text" data-testid="company-rating-text"></span>
+            </div>
+          </div>
+          <button id="follow-btn" class="secondary hidden" data-testid="follow-btn"></button>
+        </div>
+        <p id="company-description" class="mt-16"></p>
+      </section>
+
+      <section class="card mt-16">
+        <h2>Open jobs at this company</h2>
+        <div class="job-list mt-8" id="company-jobs" data-testid="company-jobs"></div>
+        <p id="no-jobs" class="muted hidden" data-testid="no-jobs">No open jobs right now.</p>
+      </section>
+
+      <section class="card mt-16">
+        <h2>Reviews</h2>
+        <div id="company-reviews" data-testid="company-reviews"></div>
+        <p id="no-reviews" class="muted hidden" data-testid="no-reviews">There are no reviews for this company yet.</p>
+      </section>
+    </div>
+
+    <p id="not-found" class="card hidden" data-testid="company-not-found">
+      Company not found. <a href="/pages/empresas.html">Back to companies</a>.
+    </p>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get("id");
+    let currentUser = null;
+    let appliedIds = new Set();
+    let companyName = "";
+    let followed = false;
+
+    async function loadMe() {
+      const { ok, body } = await QA.api("/api/auth/me");
+      if (ok) currentUser = body.data;
+    }
+
+    function jobRow(j) {
+      const a = document.createElement("a");
+      a.className = "job-card";
+      a.href = `/pages/vaga.html?id=${j.id}`;
+      a.dataset.testid = "job-card";
+      const isEmployer = currentUser && currentUser.role === "employer";
+      a.innerHTML = `
+        <img class="logo" src="${Store.escapeHtml(j.company ? j.company.logo : "/img/logos/default.svg")}" alt="" loading="lazy" />
+        <div style="flex:1">
+          <div class="title">${Store.escapeHtml(j.title)}</div>
+          <div class="company-name">${Store.escapeHtml(j.city)}</div>
+          <div class="tags">
+            <span>${Store.escapeHtml(j.seniority)}</span>
+            <span>${Store.escapeHtml(j.contractType)}</span>
+            <span>${Store.escapeHtml(j.workModel)}</span>
+          </div>
+        </div>
+        <div class="job-card-actions">
+          <div class="salary">${Store.escapeHtml(j.salary)}</div>
+          ${isEmployer ? "" : `
+          <div class="job-card-actions-row">
+            <button type="button" class="btn-apply-quick" data-testid="apply-quick-btn" data-job-id="${j.id}">Apply now</button>
+            <button type="button" class="btn-save-job" data-testid="save-job-btn" data-job-id="${j.id}" aria-pressed="${Store.isJobSaved(j.id)}" title="Save job">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>`}
+        </div>`;
+
+      const applyBtn = a.querySelector(".btn-apply-quick");
+      // N-10 (10/17/2026): show the applied state as soon as the card loads
+      if (applyBtn && appliedIds.has(j.id)) {
+        applyBtn.textContent = "Already applied";
+        applyBtn.disabled = true;
+      }
+      if (applyBtn) {
+        applyBtn.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (!currentUser) {
+            // N-11 (10/17/2026): the sign-in page shows the message, so the visitor can read it
+            location.href = "/pages/entrar.html?reason=apply";
+            return;
+          }
+          if (currentUser.role !== "candidate") {
+            Store.toast("Only candidate accounts can apply", "err");
+            return;
+          }
+          applyBtn.disabled = true;
+          const { ok, status, body } = await QA.api(`/api/jobs/${j.id}/apply`, { method: "POST" });
+          if (ok) {
+            applyBtn.textContent = "Applied ✅";
+            Store.toast("Application sent successfully!");
+          } else if (status === 409 && body && body.error === "job_closed") {
+            // the job was closed after the page loaded: it is not "already applied"
+            applyBtn.textContent = "Job closed";
+            Store.toast(body.message, "err");
+          } else if (status === 409) {
+            applyBtn.textContent = "Already applied";
+          } else {
+            applyBtn.disabled = false;
+            Store.toast(body && body.message ? body.message : "Couldn't send the application", "err");
+          }
+        });
+      }
+
+      const saveBtn = a.querySelector(".btn-save-job");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const nowSaved = Store.toggleSavedJob(j.id, { title: j.title, company: j.company ? j.company.name : companyName });
+          saveBtn.setAttribute("aria-pressed", String(nowSaved));
+          Store.toast(nowSaved ? "Job saved" : "Job removed from saved");
+        });
+      }
+
+      return a;
+    }
+
+    function reviewCard(r) {
+      const el = document.createElement("div");
+      el.className = "card mt-8";
+      el.dataset.testid = "review-card";
+      el.innerHTML = `
+        <div class="pill-row" style="justify-content:space-between">
+          <strong></strong>
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US")}</span>
+        </div>
+        <star-rating readonly value="${r.rating}"></star-rating>
+        ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}
+        <p class="mt-8"></p>`;
+      // N-12 (10/17/2026): author and comment are shown as plain text, never as HTML
+      el.querySelector("strong").textContent = r.author;
+      el.querySelector("p").textContent = r.comment;
+      return el;
+    }
+
+    async function refreshFollowState() {
+      const btn = document.getElementById("follow-btn");
+      if (!currentUser || currentUser.role !== "candidate") {
+        btn.classList.add("hidden");
+        return;
+      }
+      btn.classList.remove("hidden");
+      const { ok, body } = await QA.api("/api/users/me/followed-companies");
+      followed = ok && body.data.some((c) => c.id === Number(id));
+      btn.textContent = followed ? "✓ Following" : "+ Follow company";
+      btn.classList.toggle("secondary", followed);
+    }
+
+    document.getElementById("follow-btn").addEventListener("click", async () => {
+      // N-14 (10/17/2026): show success only when the API confirms; on failure, show the error and keep the state
+      const { ok, body } = await QA.api(`/api/companies/${id}/follow`, { method: followed ? "DELETE" : "POST" });
+      if (!ok) {
+        Store.toast((body && body.message) || (followed ? "Couldn't unfollow this company" : "Couldn't follow this company"), "err");
+        return;
+      }
+      Store.toast(followed ? "You unfollowed this company" : "You're now following this company");
+      await refreshFollowState();
+    });
+
+    async function init() {
+      if (!id) {
+        // N-15 (10/17/2026): same breadcrumb as a company that does not exist
+        document.getElementById("not-found").classList.remove("hidden");
+        document.getElementById("crumb-name").textContent = "company not found";
+        return;
+      }
+      await loadMe();
+      if (currentUser && currentUser.role === "candidate") appliedIds = await Store.getAppliedJobIds();
+
+      const [companyRes, jobsRes, reviewsRes] = await Promise.all([
+        QA.api(`/api/companies/${id}`),
+        QA.api(`/api/companies/${id}/jobs`),
+        QA.api(`/api/companies/${id}/reviews`),
+      ]);
+
+      if (!companyRes.ok) {
+        document.getElementById("not-found").classList.remove("hidden");
+        document.getElementById("crumb-name").textContent = "company not found";
+        return;
+      }
+
+      const company = companyRes.body.data;
+      companyName = company.name;
+      document.getElementById("crumb-name").textContent = company.name;
+      document.title = `${company.name} — Vagalume`;
+      document.getElementById("company-logo").src = company.logo;
+      document.getElementById("company-name").textContent = company.name;
+      document.getElementById("company-meta").textContent = `${company.sector} · ${company.city}`;
+      document.getElementById("company-description").textContent = company.description || "This company hasn't added a description yet.";
+      document.getElementById("company-stars").value = company.rating.average || 0;
+      document.getElementById("company-rating-text").textContent = company.rating.count
+        ? `${company.rating.average} out of 5 (${company.rating.count} review${company.rating.count > 1 ? "s" : ""})`
+        : "No reviews yet";
+
+      const openJobs = jobsRes.body.data.filter((j) => j.status === "open");
+      const jobsWrap = document.getElementById("company-jobs");
+      openJobs.forEach((j) => jobsWrap.appendChild(jobRow(j)));
+      document.getElementById("no-jobs").classList.toggle("hidden", openJobs.length > 0);
+
+      const reviewsWrap = document.getElementById("company-reviews");
+      reviewsRes.body.data.forEach((r) => reviewsWrap.appendChild(reviewCard(r)));
+      document.getElementById("no-reviews").classList.toggle("hidden", reviewsRes.body.data.length > 0);
+
+      await refreshFollowState();
+      document.getElementById("company-wrap").classList.remove("hidden");
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# PostgreSQL for the Vagalume QA Playground.
+#
+#   npm run db:up      start the database (first start creates the tables + seed data)
+#   npm run db:reset   wipe everything and start again from the seed data
+#   npm run db:down    stop the database (data is kept in the "vagalume-pgdata" volume)
+#
+# Values come from .env when it exists (copy .env.example), otherwise the defaults below.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vagalume-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vagalume}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vagalume}
+      POSTGRES_DB: ${POSTGRES_DB:-vagalume}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - vagalume-pgdata:/var/lib/postgresql/data
+      # *.sql files here run in alphabetical order, ONLY when the volume is empty
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  vagalume-pgdata:

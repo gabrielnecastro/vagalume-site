@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>Sign in · Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="narrow">
+    <div class="tabs">
+      <button class="active" data-tab="login" data-testid="tab-login">Sign in</button>
+      <button data-tab="register" data-testid="tab-register">Create account</button>
+    </div>
+
+    <div class="tab-panel card" id="panel-login" data-testid="panel-login">
+      <p class="muted">
+        Candidate: <code>candidato@vagalume.test</code> / <code>demo123</code><br />
+        Company: <code>empresa@vagalume.test</code> / <code>demo123</code>
+      </p>
+      <form id="login-form" novalidate>
+        <label for="login-email">Email</label>
+        <input id="login-email" type="text" inputmode="email" autocomplete="email" required data-testid="login-email" />
+        <div class="field-error" id="login-email-error" data-testid="login-email-error"></div>
+
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" required data-testid="login-password" />
+        <div class="field-error" id="login-password-error" data-testid="login-password-error"></div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+          <input type="checkbox" id="remember" style="width:auto" data-testid="remember-checkbox" /> Keep me signed in
+        </label>
+
+        <button type="submit" class="mt-16" data-testid="login-submit">Sign in</button>
+      </form>
+      <p id="login-result" class="mt-16" data-testid="login-result"></p>
+    </div>
+
+    <div class="tab-panel hidden card" id="panel-register" data-testid="panel-register">
+      <div class="pill-row" role="radiogroup" aria-label="Account type">
+        <button type="button" class="role-btn active" data-role="candidate" data-testid="role-candidate">👤 I'm a candidate</button>
+        <button type="button" class="role-btn" data-role="employer" data-testid="role-employer">🏢 I'm a company</button>
+      </div>
+
+      <form id="register-form" novalidate class="mt-16">
+        <input type="hidden" id="reg-role" value="candidate" />
+
+        <label for="reg-name">Full name</label>
+        <input id="reg-name" type="text" required data-testid="register-name" />
+        <div class="field-error" id="reg-name-error"></div>
+
+        <label for="reg-email">Email</label>
+        <input id="reg-email" type="text" inputmode="email" autocomplete="email" required data-testid="register-email" />
+        <div class="field-error" id="reg-email-error"></div>
+
+        <label for="reg-password">Password</label>
+        <input id="reg-password" type="password" required minlength="6" data-testid="register-password" />
+        <div class="field-error" id="reg-password-error"></div>
+
+        <label for="reg-password2">Confirm password</label>
+        <input id="reg-password2" type="password" required data-testid="register-password2" />
+        <div class="field-error" id="reg-password2-error"></div>
+
+        <div id="candidate-fields">
+          <label for="reg-city">City</label>
+          <input id="reg-city" type="text" placeholder="E.g.: Belo Horizonte, MG" data-testid="register-city" />
+          <div class="field-error" id="reg-city-error" data-testid="register-city-error"></div>
+        </div>
+
+        <div id="employer-fields" class="hidden">
+          <label for="reg-company">Company name</label>
+          <input id="reg-company" type="text" data-testid="register-company" />
+          <div class="field-error" id="reg-company-error"></div>
+          <label for="reg-company-city">Company city</label>
+          <input id="reg-company-city" type="text" placeholder="E.g.: São Paulo, SP" data-testid="register-company-city" />
+          <div class="field-error" id="reg-company-city-error" data-testid="register-company-city-error"></div>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+          <input type="checkbox" id="reg-terms" style="width:auto" required data-testid="register-terms" /> I accept the terms of use
+        </label>
+        <div class="field-error" id="reg-terms-error"></div>
+
+        <button type="submit" class="mt-16" data-testid="register-submit">Create account</button>
+      </form>
+      <p id="register-result" class="mt-16" data-testid="register-result"></p>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    // N-11 (10/17/2026): a visitor sent here by "Apply now" sees why
+    if (new URLSearchParams(location.search).get("reason") === "apply") {
+      Store.toast("Sign in with a candidate account to apply", "err");
+    }
+
+    document.querySelectorAll(".tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
+        document.getElementById(`panel-${btn.dataset.tab}`).classList.remove("hidden");
+      });
+    });
+
+    document.querySelectorAll(".role-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".role-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("reg-role").value = btn.dataset.role;
+        const isEmployer = btn.dataset.role === "employer";
+        document.getElementById("employer-fields").classList.toggle("hidden", !isEmployer);
+        document.getElementById("candidate-fields").classList.toggle("hidden", isEmployer);
+      });
+    });
+
+    function destinationFor(role) {
+      return role === "employer" ? "/pages/empresa/painel.html" : "/pages/candidato/painel.html";
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value; // no trim: an email with spaces is rejected (BR-03)
+      const password = document.getElementById("login-password").value;
+      const remember = document.getElementById("remember").checked;
+      const resultEl = document.getElementById("login-result");
+      const emailErrEl = document.getElementById("login-email-error");
+      const passErrEl = document.getElementById("login-password-error");
+
+      // Reset previous state
+      emailErrEl.textContent = "";
+      passErrEl.textContent = "";
+      resultEl.textContent = "";
+      resultEl.className = "mt-16";
+
+      const showError = (msg) => {
+        resultEl.textContent = msg;
+        resultEl.className = "mt-16 badge err";
+      };
+
+      // Client-side validation — one specific message per scenario
+      if (!email && !password) {
+        emailErrEl.textContent = "Email is required";
+        passErrEl.textContent = "Password is required";
+        return showError("Please enter your email and password");
+      }
+      if (!email) {
+        emailErrEl.textContent = "Email is required";
+        return showError("Please enter your email");
+      }
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        emailErrEl.textContent = "Invalid email format (e.g.: name@domain.com)";
+        if (!password) passErrEl.textContent = "Password is required";
+        return showError("Please enter a valid email address");
+      }
+      if (!password) {
+        passErrEl.textContent = "Password is required";
+        return showError("Please enter your password");
+      }
+
+      const { ok, body } = await QA.api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password, remember }) });
+      if (ok) {
+        resultEl.textContent = `Welcome, ${body.data.name}!`;
+        resultEl.className = "mt-16 badge ok";
+        setTimeout(() => (location.href = destinationFor(body.data.role)), 600);
+      } else {
+        if (body && body.error === "user_not_found") emailErrEl.textContent = "This email is not registered";
+        if (body && body.error === "wrong_password") passErrEl.textContent = "Incorrect password";
+        showError((body && body.message) || "Unable to sign in. Please try again.");
+      }
+    });
+
+    document.getElementById("register-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      let valid = true;
+      const role = document.getElementById("reg-role").value;
+      const name = document.getElementById("reg-name").value.trim();
+      const email = document.getElementById("reg-email").value; // no trim: an email with spaces is rejected (BR-03)
+      const pass = document.getElementById("reg-password").value;
+      const pass2 = document.getElementById("reg-password2").value;
+      const terms = document.getElementById("reg-terms").checked;
+      const companyName = document.getElementById("reg-company").value.trim();
+      const city = role === "employer" ? document.getElementById("reg-company-city").value.trim() : document.getElementById("reg-city").value.trim();
+
+      document.getElementById("reg-name-error").textContent = name ? "" : (valid = false, "Name is required");
+      document.getElementById("reg-email-error").textContent = !email ? (valid = false, "Email is required") : /^\S+@\S+\.\S+$/.test(email) ? "" : (valid = false, "Invalid email");
+      // Decision of 10/17/2026: a password cannot contain spaces
+      document.getElementById("reg-password-error").textContent = pass.length < 6 ? (valid = false, "Minimum of 6 characters") : /\s/.test(pass) ? (valid = false, "The password can't contain spaces") : "";
+      document.getElementById("reg-password2-error").textContent = pass2 && pass === pass2 ? "" : (valid = false, "Passwords don't match");
+      document.getElementById("reg-terms-error").textContent = terms ? "" : (valid = false, "You need to accept the terms");
+      document.getElementById("reg-company-error").textContent = role === "employer" && !companyName ? (valid = false, "Please provide the company name") : "";
+      // Decision of 10/17/2026: an optional field with only spaces blocks the form
+      const rawCity = document.getElementById(role === "employer" ? "reg-company-city" : "reg-city").value;
+      document.getElementById("reg-city-error").textContent = "";
+      document.getElementById("reg-company-city-error").textContent = "";
+      if (rawCity.length > 0 && !rawCity.trim()) {
+        valid = false;
+        document.getElementById(role === "employer" ? "reg-company-city-error" : "reg-city-error").textContent = "This field can't contain only spaces";
+      }
+      if (!valid) return;
+
+      const resultEl = document.getElementById("register-result");
+      const payload = { name, email, password: pass, role, city, acceptTerms: terms };
+      if (role === "employer") payload.companyName = companyName;
+      const { ok, body } = await QA.api("/api/auth/register", { method: "POST", body: JSON.stringify(payload) });
+      if (ok) {
+        resultEl.textContent = "Account created successfully!";
+        resultEl.className = "mt-16 badge ok";
+        setTimeout(() => (location.href = destinationFor(body.data.role)), 600);
+      } else {
+        resultEl.textContent = body.message;
+        resultEl.className = "mt-16 badge err";
+      }
+    });
+  </script>
+</body>
+</html>

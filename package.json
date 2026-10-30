@@ -1,0 +1,25 @@
+{
+  "name": "vagalume-qa-playground",
+  "version": "2.0.0",
+  "description": "Plataforma de vagas fictícia para praticar testes com Cypress, Playwright, k6 e Karate",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d --wait",
+    "db:logs": "docker compose logs -f db",
+    "db:psql": "docker compose exec db psql -U vagalume -d vagalume"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.0",
+    "swagger-ui-express": "^5.0.1"
+  }
+}

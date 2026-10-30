@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>(function(){try{var t=localStorage.getItem("vagalume_theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+  <title>My dashboard · Vagalume</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/star-rating.js" defer></script>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main id="guard-wrap" class="hidden">
+    <div class="grid-2" style="grid-template-columns: 260px 1fr; align-items:flex-start">
+      <aside class="card" id="sidebar">
+        <div class="profile-card">
+          <div class="profile-avatar" id="avatar-initials" data-testid="avatar-initials">--</div>
+          <div style="flex:1">
+            <div class="profile-name" id="profile-name" data-testid="profile-name"></div>
+            <div class="profile-city" id="profile-city" data-testid="profile-city"></div>
+          </div>
+          <button class="secondary" id="edit-profile-btn" title="Edit profile" data-testid="edit-profile-btn" style="padding:6px 10px">✏️</button>
+        </div>
+
+        <nav class="panel-menu" data-testid="panel-menu">
+          <button data-section="resume" class="active" data-testid="menu-resume">Resume and experience <span>›</span></button>
+          <button data-section="preferences" data-testid="menu-preferences">Job preferences <span>›</span></button>
+          <button data-section="activity" data-testid="menu-activity">Job activity <span>›</span></button>
+          <button data-section="saved-jobs" data-testid="menu-saved-jobs">Saved jobs <span>›</span></button>
+          <button data-section="companies" data-testid="menu-companies">Followed companies <span>›</span></button>
+          <button data-section="courses" class="group-gap" data-testid="menu-courses">My courses <span>›</span></button>
+          <button data-section="reviews" class="group-gap" data-testid="menu-reviews">Reviews and contributions <span>›</span></button>
+          <button data-section="settings" class="group-gap" data-testid="menu-settings">Account settings <span>›</span></button>
+          <button data-section="notifications" data-testid="menu-notifications">Notifications <span>›</span></button>
+          <button data-section="help" data-testid="menu-help">Help center <span>›</span></button>
+          <button id="logout-btn" class="group-gap" data-testid="menu-logout">Sign out <span>↪</span></button>
+        </nav>
+      </aside>
+
+      <div>
+        <!-- Resume and experience -->
+        <section class="card panel-section" id="section-resume" data-testid="section-resume">
+          <h2>Resume and experience</h2>
+
+          <div class="pill-row" style="justify-content:space-between">
+            <p class="muted">Upload your resume as a PDF to attach it to your applications.</p>
+          </div>
+          <form id="resume-form" class="pill-row">
+            <label class="file-upload" for="resume-file">
+              <input type="file" id="resume-file" accept=".pdf,.doc,.docx" data-testid="resume-file" class="file-upload-input" />
+              <span class="file-upload-btn">Choose file</span>
+              <span class="file-upload-name" id="resume-file-name" data-testid="resume-file-name">No file chosen</span>
+            </label>
+            <button type="submit" data-testid="resume-submit">Upload resume</button>
+          </form>
+          <p id="resume-status" class="muted" data-testid="resume-status"></p>
+
+          <h3 class="mt-24">Work experience</h3>
+          <div id="experience-list" data-testid="experience-list"></div>
+          <p id="no-experience" class="muted hidden" data-testid="no-experience">No experience added yet.</p>
+
+          <button id="add-experience-btn" class="secondary mt-16" data-testid="add-experience-btn">+ Add experience</button>
+
+          <form id="experience-form" class="hidden mt-16" data-testid="experience-form">
+            <label for="exp-company">Company</label>
+            <input id="exp-company" type="text" required data-testid="exp-company" />
+            <div class="field-error" id="exp-company-error" data-testid="exp-company-error"></div>
+            <label for="exp-role">Role</label>
+            <input id="exp-role" type="text" required data-testid="exp-role" />
+            <div class="field-error" id="exp-role-error" data-testid="exp-role-error"></div>
+            <div class="grid-2">
+              <div>
+                <label for="exp-start">Start (yyyy-mm)</label>
+                <input id="exp-start" type="text" placeholder="2023-01" data-testid="exp-start" />
+                <div class="field-error" id="exp-start-error" data-testid="exp-start-error"></div>
+              </div>
+              <div>
+                <label for="exp-end">End (yyyy-mm)</label>
+                <input id="exp-end" type="text" placeholder="2024-06" data-testid="exp-end" />
+                <div class="field-error" id="exp-end-error" data-testid="exp-end-error"></div>
+                <!-- Decision of 10/17/2026: "Current job" disables the end date -->
+                <label class="pill-row" style="justify-content:flex-start;margin-top:6px">
+                  <input type="checkbox" id="exp-current" style="width:auto" data-testid="exp-current" /> Current job
+                </label>
+              </div>
+            </div>
+            <label for="exp-desc">Description</label>
+            <textarea id="exp-desc" rows="3" data-testid="exp-desc"></textarea>
+            <div class="field-error" id="exp-desc-error" data-testid="exp-desc-error"></div>
+            <div class="pill-row mt-8">
+              <button type="submit" data-testid="exp-save">Save experience</button>
+              <button type="button" class="secondary" id="exp-cancel" data-testid="exp-cancel">Cancel</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Job preferences -->
+        <section class="card panel-section hidden" id="section-preferences" data-testid="section-preferences">
+          <h2>Job preferences</h2>
+          <p class="muted">We only use this to simulate recommendations — nothing is sent to companies.</p>
+          <form id="preferences-form">
+            <label for="pref-area">Area of interest</label>
+            <select id="pref-area" data-testid="pref-area">
+              <option value="">No preference</option>
+            </select>
+            <label for="pref-seniority">Level</label>
+            <select id="pref-seniority" data-testid="pref-seniority">
+              <option value="">No preference</option>
+              <option>Intern</option>
+              <option>Junior</option>
+              <option>Mid-level</option>
+              <option>Senior</option>
+            </select>
+            <label for="pref-workmodel">Work model</label>
+            <select id="pref-workmodel" data-testid="pref-workmodel">
+              <option value="">No preference</option>
+              <option>Remote</option>
+              <option>Hybrid</option>
+              <option>On-site</option>
+            </select>
+            <label for="pref-salary">Minimum desired salary (R$)</label>
+            <input id="pref-salary" type="number" min="0" step="100" data-testid="pref-salary" />
+            <label for="pref-availability">Availability</label>
+            <select id="pref-availability" data-testid="pref-availability">
+              <option value="immediate">Immediate</option>
+              <option value="15days">15 days</option>
+              <option value="30days">30 days</option>
+            </select>
+            <button type="submit" class="mt-16" data-testid="preferences-save">Save preferences</button>
+            <span id="preferences-status" class="muted" data-testid="preferences-status" style="margin-left:12px"></span>
+          </form>
+        </section>
+
+        <!-- Job activity -->
+        <section class="card panel-section hidden" id="section-activity" data-testid="section-activity">
+          <h2>Job activity</h2>
+          <p class="muted">Track the status of your applications.</p>
+          <div id="applications-list" class="mt-8" data-testid="applications-list"></div>
+          <p id="no-applications" class="muted hidden" data-testid="no-applications">You haven't applied to any jobs yet.</p>
+        </section>
+
+        <!-- Saved jobs -->
+        <section class="card panel-section hidden" id="section-saved-jobs" data-testid="section-saved-jobs">
+          <h2>Saved jobs</h2>
+          <p class="muted">Jobs you bookmarked with the save flag.</p>
+          <div class="job-list mt-8" id="saved-jobs-list" data-testid="saved-jobs-list"></div>
+          <p id="no-saved-jobs" class="muted hidden" data-testid="no-saved-jobs">You haven't saved any jobs yet.</p>
+        </section>
+
+        <!-- Followed companies -->
+        <section class="card panel-section hidden" id="section-companies" data-testid="section-companies">
+          <h2>Followed companies</h2>
+          <div class="company-grid mt-8" id="followed-list" data-testid="followed-list"></div>
+          <p id="no-followed" class="muted hidden" data-testid="no-followed">You don't follow any companies yet.</p>
+        </section>
+
+        <!-- My courses -->
+        <section class="card panel-section hidden" id="section-courses" data-testid="section-courses">
+          <div class="pill-row" style="justify-content:space-between">
+            <h2>My courses</h2>
+            <a href="/pages/cursos.html" data-testid="browse-courses-link">Browse course catalog →</a>
+          </div>
+          <div class="course-grid mt-8" id="my-courses-list" data-testid="my-courses-list"></div>
+          <p id="no-courses" class="muted hidden" data-testid="no-courses">You haven't purchased any courses yet.</p>
+        </section>
+
+        <!-- Reviews and contributions -->
+        <section class="card panel-section hidden" id="section-reviews" data-testid="section-reviews">
+          <h2>Reviews and contributions</h2>
+          <p class="muted">Reviews you've posted on jobs.</p>
+          <div id="my-reviews-list" class="mt-8" data-testid="my-reviews-list"></div>
+          <p id="no-my-reviews" class="muted hidden" data-testid="no-my-reviews">You haven't posted any reviews yet.</p>
+        </section>
+
+        <!-- Account settings -->
+        <section class="card panel-section hidden" id="section-settings" data-testid="section-settings">
+          <h2>Account settings</h2>
+          <form id="account-form">
+            <label for="acc-name">Name</label>
+            <input id="acc-name" type="text" required data-testid="acc-name" />
+            <div class="field-error" id="acc-name-error" data-testid="acc-name-error"></div>
+            <label for="acc-email">Email</label>
+            <input id="acc-email" type="email" disabled data-testid="acc-email" />
+            <label for="acc-city">City</label>
+            <input id="acc-city" type="text" data-testid="acc-city" />
+            <div class="field-error" id="acc-city-error" data-testid="acc-city-error"></div>
+            <button type="submit" class="mt-16" data-testid="account-save">Save changes</button>
+            <span id="account-status" class="muted" data-testid="account-status" style="margin-left:12px"></span>
+          </form>
+
+          <h3 class="mt-24">Change password</h3>
+          <form id="password-form">
+            <label for="pwd-current">Current password</label>
+            <input id="pwd-current" type="password" data-testid="pwd-current" />
+            <label for="pwd-new">New password</label>
+            <input id="pwd-new" type="password" minlength="6" data-testid="pwd-new" />
+            <div class="field-error" id="pwd-new-error" data-testid="pwd-new-error"></div>
+            <label for="pwd-confirm">Confirm new password</label>
+            <input id="pwd-confirm" type="password" data-testid="pwd-confirm" />
+            <div class="field-error" id="pwd-confirm-error" data-testid="pwd-confirm-error"></div>
+            <button type="submit" class="mt-16" data-testid="password-save">Change password</button>
+            <span id="password-status" class="muted" data-testid="password-status" style="margin-left:12px"></span>
+          </form>
+        </section>
+
+        <!-- Notifications -->
+        <section class="card panel-section hidden" id="section-notifications" data-testid="section-notifications">
+          <h2>Notifications</h2>
+          <p class="muted">Preferences for how you want to be notified (illustrative only).</p>
+          <label class="pill-row" style="justify-content:flex-start">
+            <input type="checkbox" checked data-testid="notif-email" /> News by email
+          </label>
+          <label class="pill-row mt-8" style="justify-content:flex-start">
+            <input type="checkbox" checked data-testid="notif-push" /> Alerts for matching jobs
+          </label>
+          <label class="pill-row mt-8" style="justify-content:flex-start">
+            <input type="checkbox" data-testid="notif-marketing" /> Emails from partners
+          </label>
+        </section>
+
+        <!-- Help center -->
+        <section class="card panel-section hidden" id="section-help" data-testid="section-help">
+          <h2>Help center</h2>
+          <p>Frequently asked questions and contact info are in our <a href="/pages/ajuda.html" data-testid="help-link">Help Center</a>.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <p id="not-authed" class="card hidden" data-testid="not-authed">
+    You need to sign in with a candidate account to see this dashboard. <a href="/pages/entrar.html">Sign in</a>
+  </p>
+
+  <div id="site-footer"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    let me = null;
+    let experiences = [];
+
+    const AREAS = ["Technology", "Procurement", "Operations", "Finance", "Consulting", "Human Resources", "Design", "Marketing", "Logistics", "Healthcare", "Customer Service", "Education", "Engineering"];
+    document.getElementById("pref-area").append(...AREAS.map((a) => new Option(a, a)));
+
+    document.querySelectorAll(".panel-menu button[data-section]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".panel-menu button[data-section]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".panel-section").forEach((s) => s.classList.add("hidden"));
+        document.getElementById(`section-${btn.dataset.section}`).classList.remove("hidden");
+      });
+    });
+
+    document.getElementById("edit-profile-btn").addEventListener("click", () => {
+      document.querySelector('[data-section="settings"]').click();
+    });
+
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await QA.api("/api/auth/logout", { method: "POST" });
+      location.href = "/";
+    });
+
+    function initials(name) {
+      return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
+    }
+
+    function renderProfile() {
+      document.getElementById("avatar-initials").textContent = initials(me.name);
+      document.getElementById("profile-name").textContent = me.name.toUpperCase();
+      document.getElementById("profile-city").textContent = me.city || "City not specified";
+      document.getElementById("acc-name").value = me.name;
+      document.getElementById("acc-email").value = me.email;
+      document.getElementById("acc-city").value = me.city || "";
+      // Decision of 10/17/2026: show the résumé already uploaded when the dashboard opens
+      const resumeStatus = document.getElementById("resume-status");
+      if (me.resumeUrl && !resumeStatus.textContent) {
+        const link = document.createElement("a");
+        link.href = me.resumeUrl;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.dataset.testid = "current-resume-link";
+        link.textContent = me.resumeUrl;
+        resumeStatus.replaceChildren("Current resume: ", link);
+      }
+    }
+
+    // ---------- resume ----------
+    function expItem(e) {
+      const el = document.createElement("div");
+      el.className = "timeline-item";
+      el.dataset.testid = "experience-item";
+      el.innerHTML = `
+        <div class="period"></div>
+        <strong></strong> · <span class="exp-company"></span>
+        <p class="mt-8"></p>
+        <button class="secondary" data-id="${e.id}" data-testid="exp-delete">Remove</button>`;
+      // N-19 (10/17/2026): experience fields are shown as plain text, never as HTML
+      el.querySelector(".period").textContent = `${e.startDate || "?"} — ${e.endDate || "current"}`;
+      el.querySelector("strong").textContent = e.role;
+      el.querySelector(".exp-company").textContent = e.company;
+      el.querySelector("p").textContent = e.description || "";
+      el.querySelector("[data-testid=exp-delete]").addEventListener("click", async () => {
+        // N-14 (10/17/2026): success only when the API confirms
+        const { ok, body } = await QA.api(`/api/experiences/${e.id}`, { method: "DELETE" });
+        if (!ok) { Store.toast((body && body.message) || "Couldn't remove the experience", "err"); return; }
+        Store.toast("Experience removed");
+        await loadExperiences();
+      });
+      return el;
+    }
+
+    async function loadExperiences() {
+      const { ok, body } = await QA.api("/api/users/me/experiences");
+      if (!ok) return;
+      experiences = body.data;
+      const list = document.getElementById("experience-list");
+      list.innerHTML = "";
+      experiences.forEach((e) => list.appendChild(expItem(e)));
+      document.getElementById("no-experience").classList.toggle("hidden", experiences.length > 0);
+    }
+
+    document.getElementById("add-experience-btn").addEventListener("click", () => {
+      document.getElementById("experience-form").classList.remove("hidden");
+    });
+    function resetExperienceForm() {
+      document.getElementById("experience-form").reset();
+      document.getElementById("exp-end").disabled = false;
+      document.querySelectorAll("#experience-form .field-error").forEach((el) => { el.textContent = ""; });
+    }
+    document.getElementById("exp-current").addEventListener("change", (ev) => {
+      const end = document.getElementById("exp-end");
+      end.disabled = ev.target.checked;
+      if (ev.target.checked) { end.value = ""; document.getElementById("exp-end-error").textContent = ""; }
+    });
+    document.getElementById("exp-cancel").addEventListener("click", () => {
+      resetExperienceForm();
+      document.getElementById("experience-form").classList.add("hidden");
+    });
+    document.getElementById("experience-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      // Decision of 10/17/2026: no field accepts only spaces; without "Current job", the end date is required
+      const current = document.getElementById("exp-current").checked;
+      const val = (id) => document.getElementById(id).value;
+      const errors = {
+        "exp-company": !val("exp-company").trim() ? "Company and role are required" : "",
+        "exp-role": !val("exp-role").trim() ? "Company and role are required" : "",
+        "exp-start": val("exp-start").length && !val("exp-start").trim() ? "This field can't contain only spaces" : "",
+        "exp-end": current ? "" : !val("exp-end").length ? "End date is required" : !val("exp-end").trim() ? "This field can't contain only spaces" : "",
+        "exp-desc": val("exp-desc").length && !val("exp-desc").trim() ? "This field can't contain only spaces" : "",
+      };
+      // D-08 (fixed on 10/17/2026): dates use yyyy-mm (month 01-12), and the end is not before the start
+      const ym = /^\d{4}-(0[1-9]|1[0-2])$/;
+      const start = val("exp-start").trim();
+      const end = current ? "" : val("exp-end").trim();
+      if (!errors["exp-start"] && start && !ym.test(start)) errors["exp-start"] = "Use the format yyyy-mm";
+      if (!errors["exp-end"] && end && !ym.test(end)) errors["exp-end"] = "Use the format yyyy-mm";
+      if (!errors["exp-start"] && !errors["exp-end"] && start && end && end < start) errors["exp-end"] = "End date must be after the start date";
+      Object.entries(errors).forEach(([id, msg]) => { document.getElementById(`${id}-error`).textContent = msg; });
+      if (Object.values(errors).some(Boolean)) return;
+      const payload = {
+        company: document.getElementById("exp-company").value.trim(),
+        role: document.getElementById("exp-role").value.trim(),
+        startDate: document.getElementById("exp-start").value.trim(),
+        endDate: current ? "" : document.getElementById("exp-end").value.trim(),
+        description: document.getElementById("exp-desc").value.trim(),
+      };
+      const { ok, body } = await QA.api("/api/users/me/experiences", { method: "POST", body: JSON.stringify(payload) });
+      if (!ok) { Store.toast((body && body.message) || "Couldn't save", "err"); return; }
+      Store.toast("Experience added");
+      resetExperienceForm();
+      document.getElementById("experience-form").classList.add("hidden");
+      await loadExperiences();
+    });
+
+    document.getElementById("resume-file").addEventListener("change", (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      document.getElementById("resume-file-name").textContent = file ? file.name : "No file chosen";
+    });
+
+    document.getElementById("resume-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fileInput = document.getElementById("resume-file");
+      const statusEl = document.getElementById("resume-status");
+      // D-07 (fixed on 10/17/2026): the screen gives feedback and accepts only .pdf, .doc, and .docx
+      if (!fileInput.files.length) { statusEl.textContent = "Choose a file to upload"; return; }
+      if (!/\.(pdf|docx?)$/i.test(fileInput.files[0].name)) { statusEl.textContent = "Only .pdf, .doc, and .docx files are accepted"; return; }
+      // N-02 (fixed on 10/17/2026): files over 5 MB are rejected before sending
+      if (fileInput.files[0].size > 5 * 1024 * 1024) { statusEl.textContent = "The file must be at most 5 MB"; return; }
+      const fd = new FormData();
+      fd.append("file", fileInput.files[0]);
+      const res = await fetch("/api/users/me/resume", { method: "POST", body: fd, credentials: "include" });
+      const body = await res.json();
+      document.getElementById("resume-status").textContent = res.ok ? `Resume uploaded: ${body.data.url}` : body.message;
+      if (res.ok) Store.toast("Resume uploaded successfully!");
+    });
+
+    // ---------- preferences ----------
+    async function loadPreferences() {
+      const { ok, body } = await QA.api("/api/users/me/preferences");
+      if (!ok) return;
+      const p = body.data;
+      document.getElementById("pref-area").value = p.area || "";
+      document.getElementById("pref-seniority").value = p.seniority || "";
+      document.getElementById("pref-workmodel").value = p.workModel || "";
+      document.getElementById("pref-salary").value = p.minSalary || "";
+      document.getElementById("pref-availability").value = p.availability || "immediate";
+    }
+    document.getElementById("preferences-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const payload = {
+        area: document.getElementById("pref-area").value,
+        seniority: document.getElementById("pref-seniority").value,
+        workModel: document.getElementById("pref-workmodel").value,
+        minSalary: Number(document.getElementById("pref-salary").value) || 0,
+        availability: document.getElementById("pref-availability").value,
+      };
+      const { ok } = await QA.api("/api/users/me/preferences", { method: "PUT", body: JSON.stringify(payload) });
+      document.getElementById("preferences-status").textContent = ok ? "Preferences saved ✅" : "Error saving preferences";
+    });
+
+    // ---------- job activity ----------
+    const STATUS_LABEL = { received: "Received", in_review: "In review", interview: "Interview", approved: "Approved", rejected: "Rejected" };
+    function applicationItem(a) {
+      const el = document.createElement("div");
+      el.className = "card mt-8";
+      el.dataset.testid = "application-item";
+      const j = a.job;
+      el.innerHTML = `
+        <div class="pill-row" style="justify-content:space-between">
+          <a href="/pages/vaga.html?id=${j.id}"><strong>${Store.escapeHtml(j.title)}</strong></a>
+          <span class="badge ${a.status === "rejected" ? "err" : a.status === "approved" ? "ok" : "warn"}" data-testid="application-status">${STATUS_LABEL[a.status] || a.status}</span>
+        </div>
+        <p class="muted">${Store.escapeHtml(j.company ? j.company.name : "")} · applied on ${new Date(a.appliedAt).toLocaleDateString("en-US")}</p>`;
+      return el;
+    }
+    async function loadApplications() {
+      const { ok, body } = await QA.api("/api/applications/me");
+      if (!ok) return;
+      const list = document.getElementById("applications-list");
+      list.innerHTML = "";
+      body.data.forEach((a) => list.appendChild(applicationItem(a)));
+      document.getElementById("no-applications").classList.toggle("hidden", body.data.length > 0);
+    }
+
+    // ---------- followed companies ----------
+    function followedCard(c) {
+      const wrap = document.createElement("div");
+      wrap.className = "company-card followed-company-card";
+      wrap.dataset.testid = "followed-company";
+      wrap.innerHTML = `
+        <img src="${Store.escapeHtml(c.logo)}" alt="${Store.escapeHtml(c.name)}" />
+        <strong>${Store.escapeHtml(c.name)}</strong>
+        <span class="muted" style="font-size:0.8rem">${Store.escapeHtml(c.city)}</span>
+        <button class="secondary" data-testid="unfollow-btn">Unfollow</button>`;
+      wrap.querySelector("[data-testid=unfollow-btn]").addEventListener("click", async () => {
+        // N-14 (10/17/2026): success only when the API confirms
+        const { ok, body } = await QA.api(`/api/companies/${c.id}/follow`, { method: "DELETE" });
+        if (!ok) { Store.toast((body && body.message) || "Couldn't unfollow this company", "err"); return; }
+        Store.toast("You unfollowed this company");
+        await loadFollowed();
+      });
+      return wrap;
+    }
+    // ---------- saved jobs ----------
+    function savedJobCard(j, appliedIds = new Set()) {
+      const a = document.createElement("a");
+      a.className = "job-card";
+      a.href = `/pages/vaga.html?id=${j.id}`;
+      a.dataset.testid = "job-card";
+      a.innerHTML = `
+        <img class="logo" src="${Store.escapeHtml(j.company ? j.company.logo : "/img/logos/default.svg")}" alt="${Store.escapeHtml(j.company ? j.company.name : "")}" loading="lazy" />
+        <div style="flex:1">
+          <div class="title">${Store.escapeHtml(j.title)}</div>
+          <div class="company-name">${Store.escapeHtml(j.company ? j.company.name : "")} · ${Store.escapeHtml(j.city)}</div>
+          <div class="tags">
+            <span>${Store.escapeHtml(j.seniority)}</span>
+            <span>${Store.escapeHtml(j.contractType)}</span>
+            <span>${Store.escapeHtml(j.workModel)}</span>
+          </div>
+        </div>
+        <div class="job-card-actions">
+          <div class="salary">${Store.escapeHtml(j.salary)}</div>
+          <div class="job-card-actions-row">
+            <button type="button" class="btn-apply-quick" data-testid="apply-quick-btn" data-job-id="${j.id}">Apply now</button>
+            <button type="button" class="btn-save-job" data-testid="save-job-btn" data-job-id="${j.id}" aria-pressed="true" title="Remove from saved">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+        </div>`;
+
+      const applyBtn = a.querySelector(".btn-apply-quick");
+      if (j.status !== "open") {
+        // N-08 (10/17/2026): a closed job cannot be applied to, like on the job page
+        applyBtn.textContent = "Job closed";
+        applyBtn.disabled = true;
+      } else if (appliedIds.has(j.id)) {
+        // N-10 (10/17/2026): show the applied state as soon as the card loads
+        applyBtn.textContent = "Already applied";
+        applyBtn.disabled = true;
+      }
+      applyBtn.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        applyBtn.disabled = true;
+        const { ok, status, body } = await QA.api(`/api/jobs/${j.id}/apply`, { method: "POST" });
+        if (ok) {
+          applyBtn.textContent = "Applied ✅";
+          Store.toast("Application sent successfully!");
+        } else if (status === 409 && body && body.error === "job_closed") {
+          // the job was closed after the page loaded: it is not "already applied"
+          applyBtn.textContent = "Job closed";
+          Store.toast(body.message, "err");
+        } else if (status === 409) {
+          applyBtn.textContent = "Already applied";
+        } else {
+          applyBtn.disabled = false;
+          Store.toast(body && body.message ? body.message : "Couldn't send the application", "err");
+        }
+      });
+
+      const saveBtn = a.querySelector(".btn-save-job");
+      saveBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        Store.toggleSavedJob(j.id);
+        a.remove();
+        Store.toast("Job removed from saved");
+        document.getElementById("no-saved-jobs").classList.toggle("hidden", Store.getSavedJobs().length > 0);
+      });
+
+      return a;
+    }
+
+    // N-09 (10/17/2026): a saved job that no longer exists stays in the list with a tag
+    function missingJobCard(entry) {
+      const el = document.createElement("div");
+      el.className = "job-card";
+      el.dataset.testid = "job-card-unavailable";
+      el.innerHTML = `
+        <img class="logo" src="/img/logos/default.svg" alt="" loading="lazy" />
+        <div style="flex:1">
+          ${entry.title ? `<div class="title"></div>` : ""}
+          ${entry.company ? `<div class="company-name"></div>` : ""}
+          <span class="badge warn mt-8" data-testid="job-unavailable-tag">This job is no longer available</span>
+        </div>
+        <div class="job-card-actions">
+          <div class="job-card-actions-row">
+            <button type="button" class="btn-save-job" data-testid="save-job-btn" data-job-id="${entry.id}" aria-pressed="true" title="Remove from saved">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+        </div>`;
+      if (entry.title) el.querySelector(".title").textContent = entry.title;
+      if (entry.company) el.querySelector(".company-name").textContent = entry.company;
+      el.querySelector(".btn-save-job").addEventListener("click", () => {
+        Store.toggleSavedJob(entry.id);
+        el.remove();
+        Store.toast("Job removed from saved");
+        document.getElementById("no-saved-jobs").classList.toggle("hidden", Store.getSavedJobs().length > 0);
+      });
+      return el;
+    }
+
+    async function loadSavedJobs() {
+      const entries = Store.getSavedJobEntries();
+      const list = document.getElementById("saved-jobs-list");
+      list.innerHTML = "";
+      document.getElementById("no-saved-jobs").classList.toggle("hidden", entries.length > 0);
+      if (!entries.length) return;
+      const [appliedIds, results] = await Promise.all([
+        Store.getAppliedJobIds(),
+        Promise.all(entries.map((e) => QA.api(`/api/jobs/${e.id}`))),
+      ]);
+      results.forEach(({ ok, status, body }, i) => {
+        if (ok) list.appendChild(savedJobCard(body.data, appliedIds));
+        else if (status === 404) list.appendChild(missingJobCard(entries[i]));
+      });
+    }
+
+    async function loadFollowed() {
+      const { ok, body } = await QA.api("/api/users/me/followed-companies");
+      if (!ok) return;
+      const list = document.getElementById("followed-list");
+      list.innerHTML = "";
+      body.data.forEach((c) => list.appendChild(followedCard(c)));
+      document.getElementById("no-followed").classList.toggle("hidden", body.data.length > 0);
+    }
+
+    // ---------- my courses ----------
+    function myCourseCard(e) {
+      const c = e.course;
+      const wrap = document.createElement("a");
+      wrap.href = `/pages/curso.html?id=${c.id}`;
+      wrap.className = "course-card";
+      wrap.dataset.testid = "my-course-card";
+      wrap.innerHTML = `
+        <img class="thumb" src="${c.image}" alt="${c.title}" loading="lazy" />
+        <div class="body">
+          <span class="category">${c.category}</span>
+          <div class="title">${c.title}</div>
+          <div class="instructor">${c.instructor}</div>
+          <span class="badge ok mt-8" style="align-self:flex-start">Purchased on ${new Date(e.purchasedAt).toLocaleDateString("en-US")}</span>
+        </div>`;
+      return wrap;
+    }
+    async function loadMyCourses() {
+      const { ok, body } = await QA.api("/api/users/me/enrollments");
+      if (!ok) return;
+      const list = document.getElementById("my-courses-list");
+      list.innerHTML = "";
+      body.data.filter((e) => e.course).forEach((e) => list.appendChild(myCourseCard(e)));
+      document.getElementById("no-courses").classList.toggle("hidden", body.data.length > 0);
+    }
+
+    // ---------- posted reviews ----------
+    function myReviewItem(r) {
+      const el = document.createElement("div");
+      el.className = "card mt-8";
+      el.dataset.testid = "my-review-item";
+      el.innerHTML = `
+        <star-rating readonly value="${r.rating}"></star-rating>
+        <p class="mt-8"></p>
+        <div class="pill-row" style="justify-content:space-between">
+          <a href="/pages/vaga.html?id=${r.jobId}">View job</a>
+          <button class="secondary" data-testid="my-review-delete">Delete</button>
+        </div>`;
+      // N-12 (10/17/2026): the comment is shown as plain text, never as HTML
+      el.querySelector("p").textContent = r.comment;
+      el.querySelector("[data-testid=my-review-delete]").addEventListener("click", async () => {
+        // N-14 (10/17/2026): success only when the API confirms
+        const { ok, body } = await QA.api(`/api/reviews/${r.id}`, { method: "DELETE" });
+        if (!ok) { Store.toast((body && body.message) || "Couldn't delete the review", "err"); return; }
+        Store.toast("Review deleted");
+        await loadMyReviews();
+      });
+      return el;
+    }
+    async function loadMyReviews() {
+      const { ok, body } = await QA.api("/api/users/me/reviews");
+      if (!ok) return;
+      const list = document.getElementById("my-reviews-list");
+      list.innerHTML = "";
+      body.data.forEach((r) => list.appendChild(myReviewItem(r)));
+      document.getElementById("no-my-reviews").classList.toggle("hidden", body.data.length > 0);
+    }
+
+    // ---------- settings ----------
+    document.getElementById("account-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      // BR-41 (decision of 10/17/2026): a name with only spaces is rejected; no field accepts only spaces
+      const rawName = document.getElementById("acc-name").value;
+      const rawCity = document.getElementById("acc-city").value;
+      const nameErr = rawName.trim() ? "" : "Name is required";
+      const cityErr = rawCity.length && !rawCity.trim() ? "This field can't contain only spaces" : "";
+      document.getElementById("acc-name-error").textContent = nameErr;
+      document.getElementById("acc-city-error").textContent = cityErr;
+      if (nameErr || cityErr) { document.getElementById("account-status").textContent = ""; return; }
+      const payload = { name: rawName.trim(), city: rawCity.trim() };
+      const { ok, body } = await QA.api("/api/users/me", { method: "PATCH", body: JSON.stringify(payload) });
+      document.getElementById("account-status").textContent = ok ? "Changes saved ✅" : (body && body.message) || "Error saving changes";
+      if (ok) { me = body.data; renderProfile(); }
+    });
+    document.getElementById("password-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const newPassword = document.getElementById("pwd-new").value;
+      const confirmPassword = document.getElementById("pwd-confirm").value;
+      const confirmErrEl = document.getElementById("pwd-confirm-error");
+      confirmErrEl.textContent = "";
+      // Decision of 10/17/2026: a password cannot contain spaces
+      const newErrEl = document.getElementById("pwd-new-error");
+      newErrEl.textContent = /\s/.test(newPassword) ? "The password can't contain spaces" : "";
+      if (newErrEl.textContent) { document.getElementById("password-status").textContent = ""; return; }
+      if (!confirmPassword || confirmPassword !== newPassword) {
+        confirmErrEl.textContent = "Passwords don't match";
+        document.getElementById("password-status").textContent = "";
+        return;
+      }
+      const payload = { currentPassword: document.getElementById("pwd-current").value, newPassword, confirmPassword };
+      const { ok, body } = await QA.api("/api/users/me", { method: "PATCH", body: JSON.stringify(payload) });
+      document.getElementById("password-status").textContent = ok ? "Password changed ✅" : (body && body.message) || "Error changing password";
+      if (ok) document.getElementById("password-form").reset();
+    });
+
+    (async function init() {
+      const { ok, body } = await QA.api("/api/auth/me");
+      if (!ok || body.data.role !== "candidate") {
+        document.getElementById("not-authed").classList.remove("hidden");
+        return;
+      }
+      me = body.data;
+      renderProfile();
+      document.getElementById("guard-wrap").classList.remove("hidden");
+      await Promise.all([loadExperiences(), loadPreferences(), loadApplications(), loadSavedJobs(), loadFollowed(), loadMyCourses(), loadMyReviews()]);
+    })();
+  </script>
+</body>
+</html>
