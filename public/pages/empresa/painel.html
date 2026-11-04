@@ -281,6 +281,13 @@
     document.getElementById("job-form").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const id = document.getElementById("job-id").value;
+      // Requirements are optional, but a value with only spaces is rejected, like any optional field
+      const requirements = document.getElementById("job-requirements").value;
+      if (requirements.length > 0 && requirements.trim() === "") {
+        Store.toast("This field can't contain only spaces", "err");
+        document.getElementById("job-requirements").focus();
+        return;
+      }
       const payload = {
         title: document.getElementById("job-title").value.trim(),
         area: document.getElementById("job-area").value,
@@ -291,7 +298,7 @@
         salary: document.getElementById("job-salary").value.trim(),
         status: document.getElementById("job-status").value,
         description: document.getElementById("job-description").value.trim(),
-        requirements: document.getElementById("job-requirements").value.trim(),
+        requirements: requirements.trim(),
       };
       const { ok, body } = id
         ? await QA.api(`/api/jobs/${id}`, { method: "PUT", body: JSON.stringify(payload) })
@@ -352,7 +359,7 @@
       el.innerHTML = `
         <div class="pill-row" style="justify-content:space-between">
           <strong>${r.author}</strong>
-          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US")}</span>
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "America/Sao_Paulo" })}</span>
         </div>
         <star-rating readonly value="${r.rating}"></star-rating>
         ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}

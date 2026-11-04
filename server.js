@@ -103,9 +103,8 @@ function authWithStatus(status) {
     next();
   };
 }
+// A visitor gets 401 on any action that requires an account; 403 is only for a signed-in user with the wrong account type.
 const requireAuth = authWithStatus(401);
-// The QA guide says applying while signed out returns 403.
-const requireAuthToApply = authWithStatus(403);
 
 function requireRole(role) {
   return (req, res, next) => {
@@ -414,7 +413,8 @@ app.get("/api/jobs/:id", ah(async (req, res) => {
 app.post("/api/jobs", requireAuth, requireRole("employer"), ah(async (req, res) => {
   const body = stripTextFields({ ...(req.body || {}) }, JOB_TEXT_FIELDS);
   if (!body.title || !body.area || isBlank(body.title) || isBlank(body.area)) return res.status(422).json({ error: "validation_error", message: "Required fields: title, area" });
-  // Requirements with only spaces are saved empty.
+  // Requirements are optional, but requirements with only spaces are rejected, like any optional field.
+  if (onlySpaces(body.requirements)) return res.status(422).json({ error: "validation_error", field: "requirements", message: SPACES_MESSAGE });
   if (typeof body.requirements === "string") body.requirements = body.requirements.trim();
   const job = await db.insertJob({ ...body, companyId: req.currentUser.companyId });
   res.status(201).json({ data: await jobWithCompany(job) });
@@ -428,7 +428,8 @@ app.put("/api/jobs/:id", requireAuth, requireRole("employer"), ah(async (req, re
   if ((fields.title !== undefined && (!fields.title || isBlank(fields.title))) || (fields.area !== undefined && (!fields.area || isBlank(fields.area)))) {
     return res.status(422).json({ error: "validation_error", message: "Required fields: title, area" });
   }
-  // Requirements with only spaces are saved empty.
+  // Requirements are optional, but requirements with only spaces are rejected, like any optional field.
+  if (onlySpaces(fields.requirements)) return res.status(422).json({ error: "validation_error", field: "requirements", message: SPACES_MESSAGE });
   if (typeof fields.requirements === "string") fields.requirements = fields.requirements.trim();
   const updated = await db.updateJob(job.id, fields);
   res.json({ data: await jobWithCompany(updated) });
@@ -443,7 +444,11 @@ app.delete("/api/jobs/:id", requireAuth, requireRole("employer"), ah(async (req,
 }));
 
 // old job that "moved" — classic redirect scenario
-app.get("/vaga-antiga/:id", (req, res) => res.redirect(302, `/pages/vaga.html?id=${req.params.id}`));
+// The legacy address redirects only a whole job id (1 or more); anything else is a page that does not exist.
+app.get("/vaga-antiga/:id", (req, res, next) => {
+  if (!/^[1-9]\d*$/.test(req.params.id)) return next();
+  res.redirect(302, `/pages/vaga.html?id=${req.params.id}`);
+});
 
 // ---------------------------------------------------------------------------
 // Reviews (of a job/company, written by candidates or former employees)
@@ -495,7 +500,7 @@ app.delete("/api/reviews/:id", requireAuth, ah(async (req, res) => {
 // Applications
 // ---------------------------------------------------------------------------
 
-app.post("/api/jobs/:id/apply", requireAuthToApply, requireRole("candidate"), ah(async (req, res) => {
+app.post("/api/jobs/:id/apply", requireAuth, requireRole("candidate"), ah(async (req, res) => {
   const jobId = Number(req.params.id);
   const job = await db.getJob(jobId);
   if (!job) return res.status(404).json({ error: "not_found", message: "Job not found" });

@@ -358,7 +358,7 @@ paths:
       summary: Post a job (employer)
       description: |
         The job belongs to the signed-in employer's company. HTML tags are removed from the text
-        fields; requirements with only spaces are saved empty.
+        fields. Requirements are optional, but requirements with only spaces return 422.
       security: [{ cookieAuth: [] }]
       requestBody:
         required: true
@@ -399,6 +399,9 @@ paths:
     put:
       tags: [Jobs]
       summary: Edit a job of your company (employer)
+      description: |
+        HTML tags are removed from the text fields. Requirements are optional, but requirements
+        with only spaces return 422.
       security: [{ cookieAuth: [] }]
       requestBody:
         required: true
@@ -508,8 +511,8 @@ paths:
       tags: [Applications]
       summary: Apply to a job (candidate)
       description: |
-        Without a valid session this route returns **403** (not 401): `not_authenticated` or
-        `invalid_session`. An employer account also gets 403 (`forbidden`).
+        Without a valid session this route returns 401 (`not_authenticated` or `invalid_session`).
+        An employer account gets 403 (`forbidden`).
       security: [{ cookieAuth: [] }]
       responses:
         "201":
@@ -520,6 +523,7 @@ paths:
                 type: object
                 properties:
                   data: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
