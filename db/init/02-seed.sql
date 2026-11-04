@@ -67,7 +67,7 @@ INSERT INTO applications (id, "jobId", "userId", status, "appliedAt") VALUES
   (5, 1, 3, 'rejected', '2026-08-20T16:00:00.000Z');
 
 -- reviews
--- each review belongs to a candidate account (D-05, 10/17/2026)
+-- each review belongs to a candidate account
 INSERT INTO reviews (id, "jobId", "companyId", "authorId", author, rating, comment, "wasEmployee", "createdAt") VALUES
   (1, 1, 1, 3, 'Ricardo Nogueira', 4, 'Very good technical team, but tight deadlines during closing periods.', TRUE, '2026-06-01T00:00:00.000Z'),
   (2, 2, 1, 2, 'Fernanda Duarte', 5, 'Fast and transparent hiring process, quick feedback.', FALSE, '2026-07-15T00:00:00.000Z'),

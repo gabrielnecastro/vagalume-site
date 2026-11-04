@@ -16,7 +16,7 @@ class StarRating extends HTMLElement {
 
   render() {
     const readonly = this.hasAttribute("readonly");
-    // N-17 (10/17/2026): read-only stars show half stars — x.25 to x.74 is a half star,
+    // Read-only stars show half stars — x.25 to x.74 is a half star,
     // below x.25 rounds down, and x.75 or more rounds up. The selector keeps whole stars.
     let full = Math.round(this.value);
     let half = false;

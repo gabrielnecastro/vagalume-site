@@ -79,7 +79,7 @@
                 <label for="exp-end">End (yyyy-mm)</label>
                 <input id="exp-end" type="text" placeholder="2024-06" data-testid="exp-end" />
                 <div class="field-error" id="exp-end-error" data-testid="exp-end-error"></div>
-                <!-- Decision of 10/17/2026: "Current job" disables the end date -->
+                <!-- "Current job" disables the end date -->
                 <label class="pill-row" style="justify-content:flex-start;margin-top:6px">
                   <input type="checkbox" id="exp-current" style="width:auto" data-testid="exp-current" /> Current job
                 </label>
@@ -272,7 +272,7 @@
       document.getElementById("acc-name").value = me.name;
       document.getElementById("acc-email").value = me.email;
       document.getElementById("acc-city").value = me.city || "";
-      // Decision of 10/17/2026: show the résumé already uploaded when the dashboard opens
+      // Show the résumé already uploaded when the dashboard opens
       const resumeStatus = document.getElementById("resume-status");
       if (me.resumeUrl && !resumeStatus.textContent) {
         const link = document.createElement("a");
@@ -295,13 +295,13 @@
         <strong></strong> · <span class="exp-company"></span>
         <p class="mt-8"></p>
         <button class="secondary" data-id="${e.id}" data-testid="exp-delete">Remove</button>`;
-      // N-19 (10/17/2026): experience fields are shown as plain text, never as HTML
+      // Experience fields are shown as plain text, never as HTML
       el.querySelector(".period").textContent = `${e.startDate || "?"} — ${e.endDate || "current"}`;
       el.querySelector("strong").textContent = e.role;
       el.querySelector(".exp-company").textContent = e.company;
       el.querySelector("p").textContent = e.description || "";
       el.querySelector("[data-testid=exp-delete]").addEventListener("click", async () => {
-        // N-14 (10/17/2026): success only when the API confirms
+        // Success only when the API confirms
         const { ok, body } = await QA.api(`/api/experiences/${e.id}`, { method: "DELETE" });
         if (!ok) { Store.toast((body && body.message) || "Couldn't remove the experience", "err"); return; }
         Store.toast("Experience removed");
@@ -339,7 +339,7 @@
     });
     document.getElementById("experience-form").addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      // Decision of 10/17/2026: no field accepts only spaces; without "Current job", the end date is required
+      // No field accepts only spaces; without "Current job", the end date is required
       const current = document.getElementById("exp-current").checked;
       const val = (id) => document.getElementById(id).value;
       const errors = {
@@ -349,7 +349,7 @@
         "exp-end": current ? "" : !val("exp-end").length ? "End date is required" : !val("exp-end").trim() ? "This field can't contain only spaces" : "",
         "exp-desc": val("exp-desc").length && !val("exp-desc").trim() ? "This field can't contain only spaces" : "",
       };
-      // D-08 (fixed on 10/17/2026): dates use yyyy-mm (month 01-12), and the end is not before the start
+      // Dates use yyyy-mm (month 01-12), and the end is not before the start
       const ym = /^\d{4}-(0[1-9]|1[0-2])$/;
       const start = val("exp-start").trim();
       const end = current ? "" : val("exp-end").trim();
@@ -382,10 +382,10 @@
       ev.preventDefault();
       const fileInput = document.getElementById("resume-file");
       const statusEl = document.getElementById("resume-status");
-      // D-07 (fixed on 10/17/2026): the screen gives feedback and accepts only .pdf, .doc, and .docx
+      // The screen gives feedback and accepts only .pdf, .doc, and .docx
       if (!fileInput.files.length) { statusEl.textContent = "Choose a file to upload"; return; }
       if (!/\.(pdf|docx?)$/i.test(fileInput.files[0].name)) { statusEl.textContent = "Only .pdf, .doc, and .docx files are accepted"; return; }
-      // N-02 (fixed on 10/17/2026): files over 5 MB are rejected before sending
+      // Files over 5 MB are rejected before sending
       if (fileInput.files[0].size > 5 * 1024 * 1024) { statusEl.textContent = "The file must be at most 5 MB"; return; }
       const fd = new FormData();
       fd.append("file", fileInput.files[0]);
@@ -454,7 +454,7 @@
         <span class="muted" style="font-size:0.8rem">${Store.escapeHtml(c.city)}</span>
         <button class="secondary" data-testid="unfollow-btn">Unfollow</button>`;
       wrap.querySelector("[data-testid=unfollow-btn]").addEventListener("click", async () => {
-        // N-14 (10/17/2026): success only when the API confirms
+        // Success only when the API confirms
         const { ok, body } = await QA.api(`/api/companies/${c.id}/follow`, { method: "DELETE" });
         if (!ok) { Store.toast((body && body.message) || "Couldn't unfollow this company", "err"); return; }
         Store.toast("You unfollowed this company");
@@ -491,11 +491,11 @@
 
       const applyBtn = a.querySelector(".btn-apply-quick");
       if (j.status !== "open") {
-        // N-08 (10/17/2026): a closed job cannot be applied to, like on the job page
+        // A closed job cannot be applied to, like on the job page
         applyBtn.textContent = "Job closed";
         applyBtn.disabled = true;
       } else if (appliedIds.has(j.id)) {
-        // N-10 (10/17/2026): show the applied state as soon as the card loads
+        // Show the applied state as soon as the card loads
         applyBtn.textContent = "Already applied";
         applyBtn.disabled = true;
       }
@@ -532,7 +532,7 @@
       return a;
     }
 
-    // N-09 (10/17/2026): a saved job that no longer exists stays in the list with a tag
+    // A saved job that no longer exists stays in the list with a tag
     function missingJobCard(entry) {
       const el = document.createElement("div");
       el.className = "job-card";
@@ -625,10 +625,10 @@
           <a href="/pages/vaga.html?id=${r.jobId}">View job</a>
           <button class="secondary" data-testid="my-review-delete">Delete</button>
         </div>`;
-      // N-12 (10/17/2026): the comment is shown as plain text, never as HTML
+      // The comment is shown as plain text, never as HTML
       el.querySelector("p").textContent = r.comment;
       el.querySelector("[data-testid=my-review-delete]").addEventListener("click", async () => {
-        // N-14 (10/17/2026): success only when the API confirms
+        // Success only when the API confirms
         const { ok, body } = await QA.api(`/api/reviews/${r.id}`, { method: "DELETE" });
         if (!ok) { Store.toast((body && body.message) || "Couldn't delete the review", "err"); return; }
         Store.toast("Review deleted");
@@ -648,7 +648,7 @@
     // ---------- settings ----------
     document.getElementById("account-form").addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      // BR-41 (decision of 10/17/2026): a name with only spaces is rejected; no field accepts only spaces
+      // A name with only spaces is rejected; no field accepts only spaces
       const rawName = document.getElementById("acc-name").value;
       const rawCity = document.getElementById("acc-city").value;
       const nameErr = rawName.trim() ? "" : "Name is required";
@@ -667,7 +667,7 @@
       const confirmPassword = document.getElementById("pwd-confirm").value;
       const confirmErrEl = document.getElementById("pwd-confirm-error");
       confirmErrEl.textContent = "";
-      // Decision of 10/17/2026: a password cannot contain spaces
+      // A password cannot contain spaces
       const newErrEl = document.getElementById("pwd-new-error");
       newErrEl.textContent = /\s/.test(newPassword) ? "The password can't contain spaces" : "";
       if (newErrEl.textContent) { document.getElementById("password-status").textContent = ""; return; }

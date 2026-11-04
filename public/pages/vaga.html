@@ -179,7 +179,7 @@
         <star-rating readonly value="${r.rating}"></star-rating>
         ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}
         <p class="mt-8"></p>`;
-      // N-12 (10/17/2026): author and comment are shown as plain text, never as HTML
+      // Author and comment are shown as plain text, never as HTML
       el.querySelector("strong").textContent = r.author;
       el.querySelector("p").textContent = r.comment;
       return el;
@@ -200,7 +200,7 @@
 
     document.getElementById("apply-btn").addEventListener("click", async () => {
       if (!currentUser) {
-        // N-11 (10/17/2026): the sign-in page shows the message, so the visitor can read it
+        // The sign-in page shows the message, so the visitor can read it
         location.href = "/pages/entrar.html?reason=apply";
         return;
       }
@@ -258,7 +258,7 @@
       await Promise.all([loadReviews(), loadCompany()]);
     });
 
-    // N-10 (10/17/2026): show the applied state as soon as the page loads
+    // Show the applied state as soon as the page loads
     async function loadAppliedState() {
       if (!currentJob || currentJob.status !== "open" || !currentUser || currentUser.role !== "candidate") return;
       const appliedIds = await Store.getAppliedJobIds();

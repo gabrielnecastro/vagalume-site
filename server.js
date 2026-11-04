@@ -40,7 +40,7 @@ app.use(cookieParser());
 // Helpers
 // ---------------------------------------------------------------------------
 
-// N-12/N-19 (decision of 10/17/2026): user text is stored without HTML tags.
+// User text is stored without HTML tags.
 // Removes tags such as <b> or </p> (a "<" followed by a letter or "/") and HTML comments;
 // a lone "<" or ">" (e.g. "salary > 5k") is kept.
 function stripTags(value) {
@@ -48,7 +48,7 @@ function stripTags(value) {
   return value.replace(/<!--[\s\S]*?-->/g, "").replace(/<\/?[a-zA-Z][^>]*>/g, "");
 }
 
-// N-25 (10/17/2026): removes HTML tags from the listed text fields of an object, in place.
+// Removes HTML tags from the listed text fields of an object, in place.
 const JOB_TEXT_FIELDS = ["title", "area", "seniority", "contractType", "workModel", "city", "salary", "description", "requirements"];
 const COMPANY_TEXT_FIELDS = ["name", "sector", "city", "description", "logo"];
 function stripTextFields(obj, keys) {
@@ -56,14 +56,14 @@ function stripTextFields(obj, keys) {
   return obj;
 }
 
-// Decision of 10/17/2026 (N-13, N-18, N-20): no text field accepts only spaces, on screen or in the API.
+// No text field accepts only spaces, on screen or in the API.
 const isBlank = (value) => typeof value === "string" && value.trim() === "";
 const onlySpaces = (value) => typeof value === "string" && value.length > 0 && value.trim() === "";
 const SPACES_MESSAGE = "This field can't contain only spaces";
-// Decision of 10/17/2026: a password cannot contain spaces.
+// A password cannot contain spaces.
 const PASSWORD_SPACES_MESSAGE = "The password can't contain spaces";
 
-// D-08 (fixed on 10/17/2026): experience dates use yyyy-mm (month 01-12), and the end is not before the start.
+// Experience dates use yyyy-mm (month 01-12), and the end is not before the start.
 function experienceDateError(startDate, endDate) {
   const ym = /^\d{4}-(0[1-9]|1[0-2])$/;
   if (startDate && !ym.test(startDate)) return { field: "startDate", message: "Use the format yyyy-mm" };
@@ -104,7 +104,7 @@ function authWithStatus(status) {
   };
 }
 const requireAuth = authWithStatus(401);
-// N-03 (10/17/2026): the QA guide says applying while signed out returns 403.
+// The QA guide says applying while signed out returns 403.
 const requireAuthToApply = authWithStatus(403);
 
 function requireRole(role) {
@@ -189,8 +189,8 @@ app.post("/api/auth/register", ah(async (req, res) => {
   if (!["candidate", "employer"].includes(role)) {
     return res.status(422).json({ error: "validation_error", message: "Invalid account type" });
   }
-  // Same rules the screen already enforces (D-02, D-03, and N-01, fixed on 10/17/2026).
-  // The format requires something@domain.ext and, since it rejects spaces, also covers BR-03.
+  // Same rules the screen already enforces.
+  // The format requires something@domain.ext, which also rejects an email with spaces.
   if (!/^\S+@\S+\.\S+$/.test(String(email))) {
     return res.status(422).json({ error: "invalid_email_format", message: "Please enter a valid email address" });
   }
@@ -214,14 +214,14 @@ app.post("/api/auth/register", ah(async (req, res) => {
   if (role === "candidate") {
     // no company
   } else {
-    // N-25 (10/17/2026): HTML tags are removed from the company name and city
+    // HTML tags are removed from the company name and city
     const cleanCompanyName = stripTags(companyName);
     const cleanCity = stripTags(city);
     if (!cleanCompanyName || isBlank(cleanCompanyName)) return res.status(422).json({ error: "validation_error", message: "Please provide the company name" });
     const company = await db.insertCompany({ name: cleanCompanyName, sector: "Not specified", city: cleanCity || "Not specified", logo: "/img/logos/default.svg", description: "" });
     companyId = company.id;
   }
-  // D-10 (10/17/2026): only the hash is stored
+  // Only the hash is stored
   const user = await db.insertUser({ name, email, password: db.hashPassword(password), role, city: role === "candidate" ? city || "" : null, companyId });
   res.cookie("session", signSession(user), { httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 3600 * 1000 });
   res.status(201).json({ data: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId } });
@@ -229,7 +229,7 @@ app.post("/api/auth/register", ah(async (req, res) => {
 
 app.post("/api/auth/login", ah(async (req, res) => {
   const { email, password, remember } = req.body || {};
-  const emailStr = String(email || ""); // no trim: an email with spaces is rejected (BR-03)
+  const emailStr = String(email || ""); // no trim: an email with spaces is rejected
   const passStr = String(password || "");
   if (!emailStr && !passStr) {
     return res.status(422).json({ error: "missing_credentials", message: "Please enter your email and password" });
@@ -250,9 +250,9 @@ app.post("/api/auth/login", ah(async (req, res) => {
   if (!db.verifyPassword(user.password, passStr)) {
     return res.status(401).json({ error: "wrong_password", message: "Incorrect password" });
   }
-  // D-10: an account inserted straight into the database with a plain-text password is hashed on its first sign-in
+  // An account inserted straight into the database with a plain-text password is hashed on its first sign-in
   if (!db.isHashed(user.password)) await db.updateUser(user.id, { password: db.hashPassword(passStr) });
-  const maxAge = remember ? 7 * 24 * 3600 * 1000 : undefined; // BR-10: 7 days, the same lifetime as the JWT
+  const maxAge = remember ? 7 * 24 * 3600 * 1000 : undefined; // 7 days, the same lifetime as the JWT
   res.cookie("session", signSession(user), { httpOnly: true, sameSite: "lax", maxAge });
   res.json({ data: { id: user.id, name: user.name, email: user.email, role: user.role, companyId: user.companyId } });
 }));
@@ -272,7 +272,7 @@ app.patch("/api/users/me", requireAuth, ah(async (req, res) => {
   const name = stripTags((req.body || {}).name);
   const u = req.currentUser;
   const fields = {};
-  // BR-41 (decision of 10/17/2026): a blank name or one with only spaces is rejected
+  // A blank name or one with only spaces is rejected
   if (name !== undefined && (name === null || isBlank(String(name)))) {
     return res.status(422).json({ error: "validation_error", field: "name", message: "Name is required" });
   }
@@ -290,10 +290,10 @@ app.patch("/api/users/me", requireAuth, ah(async (req, res) => {
       return res.status(422).json({ error: "validation_error", message: PASSWORD_SPACES_MESSAGE });
     }
     if (confirmPassword !== newPassword) {
-      // BR-42: the new password must be confirmed (decision of 10/17/2026)
+      // The new password must be confirmed
       return res.status(422).json({ error: "validation_error", message: "Passwords don't match" });
     }
-    fields.password = db.hashPassword(newPassword); // D-10: only the hash is stored
+    fields.password = db.hashPassword(newPassword); // Only the hash is stored
   }
   if (name) fields.name = name;
   if (city !== undefined) fields.city = city;
@@ -338,7 +338,7 @@ app.put("/api/companies/:id", requireAuth, requireRole("employer"), ah(async (re
   const company = await db.getCompany(Number(req.params.id));
   if (!company) return res.status(404).json({ error: "not_found" });
   if (company.id !== req.currentUser.companyId) return res.status(403).json({ error: "forbidden", message: "You can only edit your own company" });
-  const fields = stripTextFields({ ...(req.body || {}) }, COMPANY_TEXT_FIELDS); // N-25
+  const fields = stripTextFields({ ...(req.body || {}) }, COMPANY_TEXT_FIELDS);
   if (fields.name !== undefined && (!fields.name || isBlank(fields.name))) {
     return res.status(422).json({ error: "validation_error", message: "Please provide the company name" });
   }
@@ -372,7 +372,7 @@ app.get("/api/jobs", ah(async (req, res) => {
   let items = await Promise.all((await db.jobs()).map(jobWithCompany));
   const { q, area, seniority, contractType, workModel, city, companyId, status, sort, order } = req.query;
 
-  // N-06 (10/17/2026): a limit or page that is not a whole number or is out of range returns 422.
+  // A limit or page that is not a whole number or is out of range returns 422.
   const { page: pageParam, limit: limitParam } = req.query;
   if (limitParam !== undefined && (!/^\d+$/.test(String(limitParam)) || Number(limitParam) < 1 || Number(limitParam) > 100)) {
     return res.status(422).json({ error: "validation_error", message: "limit must be a whole number from 1 to 100" });
@@ -382,7 +382,7 @@ app.get("/api/jobs", ah(async (req, res) => {
   }
 
   items = items.filter((j) => (status === "all" ? true : status ? j.status === status : j.status === "open"));
-  // N-04 (10/17/2026): the search ignores spaces around the term, like the screen.
+  // The search ignores spaces around the term, like the screen.
   const needle = q ? String(q).trim().toLowerCase() : "";
   if (needle) {
     items = items.filter((j) => j.title.toLowerCase().includes(needle) || j.description.toLowerCase().includes(needle) || (j.company && j.company.name.toLowerCase().includes(needle)));
@@ -412,9 +412,9 @@ app.get("/api/jobs/:id", ah(async (req, res) => {
 }));
 
 app.post("/api/jobs", requireAuth, requireRole("employer"), ah(async (req, res) => {
-  const body = stripTextFields({ ...(req.body || {}) }, JOB_TEXT_FIELDS); // N-25
+  const body = stripTextFields({ ...(req.body || {}) }, JOB_TEXT_FIELDS);
   if (!body.title || !body.area || isBlank(body.title) || isBlank(body.area)) return res.status(422).json({ error: "validation_error", message: "Required fields: title, area" });
-  // N-05 (10/17/2026): requirements with only spaces are saved empty.
+  // Requirements with only spaces are saved empty.
   if (typeof body.requirements === "string") body.requirements = body.requirements.trim();
   const job = await db.insertJob({ ...body, companyId: req.currentUser.companyId });
   res.status(201).json({ data: await jobWithCompany(job) });
@@ -424,11 +424,11 @@ app.put("/api/jobs/:id", requireAuth, requireRole("employer"), ah(async (req, re
   const job = await db.getJob(Number(req.params.id));
   if (!job) return res.status(404).json({ error: "not_found" });
   if (job.companyId !== req.currentUser.companyId) return res.status(403).json({ error: "forbidden", message: "You can only edit jobs posted by your company" });
-  const fields = stripTextFields({ ...(req.body || {}) }, JOB_TEXT_FIELDS); // N-25
+  const fields = stripTextFields({ ...(req.body || {}) }, JOB_TEXT_FIELDS);
   if ((fields.title !== undefined && (!fields.title || isBlank(fields.title))) || (fields.area !== undefined && (!fields.area || isBlank(fields.area)))) {
     return res.status(422).json({ error: "validation_error", message: "Required fields: title, area" });
   }
-  // N-05 (10/17/2026): requirements with only spaces are saved empty.
+  // Requirements with only spaces are saved empty.
   if (typeof fields.requirements === "string") fields.requirements = fields.requirements.trim();
   const updated = await db.updateJob(job.id, fields);
   res.json({ data: await jobWithCompany(updated) });
@@ -461,7 +461,7 @@ app.post("/api/jobs/:id/reviews", requireAuth, requireRole("candidate"), ah(asyn
   const { rating, wasEmployee } = req.body || {};
   const comment = stripTags((req.body || {}).comment);
   if (!rating || !comment || isBlank(comment)) return res.status(422).json({ error: "validation_error", message: "Rating and comment are required" });
-  // D-04 (10/17/2026): only a whole number from 1 to 5, the same range as the stars on screen
+  // Only a whole number from 1 to 5, the same range as the stars on screen
   if (!Number.isInteger(Number(rating)) || Number(rating) < 1 || Number(rating) > 5 || typeof rating === "boolean") {
     return res.status(422).json({ error: "validation_error", field: "rating", message: "The rating must be a whole number from 1 to 5" });
   }
@@ -485,7 +485,7 @@ app.get("/api/users/me/reviews", requireAuth, ah(async (req, res) => {
 app.delete("/api/reviews/:id", requireAuth, ah(async (req, res) => {
   const review = await db.getReview(Number(req.params.id));
   if (!review) return res.status(404).json({ error: "not_found" });
-  // D-05 (10/17/2026): ownership by account id, not by name
+  // Ownership by account id, not by name
   if (review.authorId !== req.currentUser.id) return res.status(403).json({ error: "forbidden", message: "You can only delete your own reviews" });
   await db.deleteReview(review.id);
   res.status(204).end();
@@ -499,7 +499,7 @@ app.post("/api/jobs/:id/apply", requireAuthToApply, requireRole("candidate"), ah
   const jobId = Number(req.params.id);
   const job = await db.getJob(jobId);
   if (!job) return res.status(404).json({ error: "not_found", message: "Job not found" });
-  // D-01 (10/17/2026): a job that is not open does not accept applications, as the FAQ says.
+  // A job that is not open does not accept applications, as the FAQ says.
   if (job.status !== "open") {
     return res.status(409).json({ error: "job_closed", message: "This job is no longer accepting applications." });
   }
@@ -549,7 +549,7 @@ app.patch("/api/applications/:id", requireAuth, requireRole("employer"), ah(asyn
 // Candidate resume (experiences) and preferences
 // ---------------------------------------------------------------------------
 
-// Decision of 10/17/2026: experiences are listed like a résumé — the current job first,
+// Experiences are listed like a résumé — the current job first,
 // then by start date, most recent first; entries without a start date go last.
 function compareExperiences(a, b) {
   const currentA = !a.endDate, currentB = !b.endDate;
@@ -559,7 +559,7 @@ function compareExperiences(a, b) {
   return b.id - a.id;
 }
 
-// D-09 (10/17/2026): experiences, preferences, and the résumé are for candidate accounts only
+// Experiences, preferences, and the résumé are for candidate accounts only
 app.get("/api/users/me/experiences", requireAuth, requireRole("candidate"), ah(async (req, res) => {
   res.json({ data: (await db.experiencesByUser(req.currentUser.id)).sort(compareExperiences) });
 }));
@@ -608,7 +608,7 @@ app.get("/api/users/me/preferences", requireAuth, requireRole("candidate"), ah(a
   res.json({ data: await db.getPreferences(req.currentUser.id) });
 }));
 
-// N-21 (decision of 10/17/2026): preferences accept only the values the screen offers
+// Preferences accept only the values the screen offers
 const PREFERENCE_OPTIONS = {
   area: ["Technology", "Procurement", "Operations", "Finance", "Consulting", "Human Resources", "Design", "Marketing", "Logistics", "Healthcare", "Customer Service", "Education", "Engineering"],
   seniority: ["Intern", "Junior", "Mid-level", "Senior"],
@@ -627,7 +627,7 @@ app.put("/api/users/me/preferences", requireAuth, requireRole("candidate"), ah(a
     return res.status(422).json({ error: "validation_error", field: "availability", message: "Invalid value" });
   }
   if ("minSalary" in fields) {
-    if (fields.minSalary === "" || fields.minSalary === null) fields.minSalary = 0; // BR-39: an empty salary is stored as 0
+    if (fields.minSalary === "" || fields.minSalary === null) fields.minSalary = 0; // An empty salary is stored as 0
     if (typeof fields.minSalary !== "number" || !Number.isInteger(fields.minSalary) || fields.minSalary < 0) {
       return res.status(422).json({ error: "validation_error", field: "minSalary", message: "The minimum salary must be a whole number of 0 or more" });
     }
@@ -766,7 +766,7 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
   res.status(201).json({ data: { originalName: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype, url: `/uploads/${req.file.filename}` } });
 });
 
-// Decisions of 10/17/2026: the résumé keeps its extension, only .pdf/.doc/.docx are accepted (D-07),
+// The résumé keeps its extension, only .pdf/.doc/.docx are accepted,
 // and a new résumé deletes the previous file.
 const RESUME_EXTENSIONS = [".pdf", ".doc", ".docx"];
 const UPLOADS_DIR = path.join(__dirname, "uploads");
@@ -775,7 +775,7 @@ const resumeUpload = multer({
     destination: UPLOADS_DIR,
     filename: (req, file, cb) => cb(null, crypto.randomBytes(16).toString("hex") + path.extname(file.originalname).toLowerCase()),
   }),
-  // multer rejects a file whose size reaches the limit, so the limit is 5 MB + 1 byte: exactly 5 MB is accepted (N-02)
+  // multer rejects a file whose size reaches the limit, so the limit is 5 MB + 1 byte: exactly 5 MB is accepted
   limits: { fileSize: 5 * 1024 * 1024 + 1 },
 });
 const removeUpload = (url) => {
@@ -783,7 +783,7 @@ const removeUpload = (url) => {
   fs.unlink(path.join(UPLOADS_DIR, path.basename(url)), () => {}); // a missing file is not an error
 };
 
-// N-02 (fixed on 10/17/2026): a file over 5 MB returns 422 instead of a 500
+// A file over 5 MB returns 422 instead of a 500
 const resumeSingle = (req, res, next) =>
   resumeUpload.single("file")(req, res, (err) => {
     if (err && err.code === "LIMIT_FILE_SIZE") {
@@ -892,7 +892,7 @@ app.get("/api/slow", (req, res) => {
 });
 
 app.get("/api/flaky", (req, res) => {
-  // N-28 (10/17/2026): 0 is a valid rate; the default 0.3 is used only when the value is missing or not a number
+  // 0 is a valid rate; the default 0.3 is used only when the value is missing or not a number
   const parsed = parseFloat(req.query.failRate);
   const failRate = Math.min(Math.max(Number.isNaN(parsed) ? 0.3 : parsed, 0), 1);
   if (Math.random() < failRate) return res.status(500).json({ error: "random_failure", message: "Random failure (on purpose)" });
@@ -925,7 +925,7 @@ app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "4
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  // N-26 (10/17/2026): a request body that is not valid JSON is the caller's error, not the server's
+  // A request body that is not valid JSON is the caller's error, not the server's
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ error: "invalid_json", message: "The request body is not valid JSON" });
   }
@@ -939,7 +939,7 @@ app.use((err, req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // HTTP server
-// Decision of 10/17/2026: the WebSocket (/ws) was removed with the simulated
+// The WebSocket (/ws) was removed with the simulated
 // notifications, the online counter, and the help center chat.
 // ---------------------------------------------------------------------------
 

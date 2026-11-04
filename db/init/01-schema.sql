@@ -76,7 +76,7 @@ CREATE TABLE reviews (
   id            SERIAL PRIMARY KEY,
   "jobId"       INTEGER,
   "companyId"   INTEGER,
-  "authorId"    INTEGER, -- account that wrote the review (D-05, 10/17/2026)
+  "authorId"    INTEGER, -- account that wrote the review
   author        TEXT,    -- name shown on the review, as it was when it was written
   rating        INTEGER,
   comment       TEXT,

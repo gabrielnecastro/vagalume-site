@@ -95,7 +95,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/store.js"></script>
   <script>
-    // N-11 (10/17/2026): a visitor sent here by "Apply now" sees why
+    // A visitor sent here by "Apply now" sees why
     if (new URLSearchParams(location.search).get("reason") === "apply") {
       Store.toast("Sign in with a candidate account to apply", "err");
     }
@@ -126,7 +126,7 @@
 
     document.getElementById("login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = document.getElementById("login-email").value; // no trim: an email with spaces is rejected (BR-03)
+      const email = document.getElementById("login-email").value; // no trim: an email with spaces is rejected
       const password = document.getElementById("login-password").value;
       const remember = document.getElementById("remember").checked;
       const resultEl = document.getElementById("login-result");
@@ -181,7 +181,7 @@
       let valid = true;
       const role = document.getElementById("reg-role").value;
       const name = document.getElementById("reg-name").value.trim();
-      const email = document.getElementById("reg-email").value; // no trim: an email with spaces is rejected (BR-03)
+      const email = document.getElementById("reg-email").value; // no trim: an email with spaces is rejected
       const pass = document.getElementById("reg-password").value;
       const pass2 = document.getElementById("reg-password2").value;
       const terms = document.getElementById("reg-terms").checked;
@@ -190,12 +190,12 @@
 
       document.getElementById("reg-name-error").textContent = name ? "" : (valid = false, "Name is required");
       document.getElementById("reg-email-error").textContent = !email ? (valid = false, "Email is required") : /^\S+@\S+\.\S+$/.test(email) ? "" : (valid = false, "Invalid email");
-      // Decision of 10/17/2026: a password cannot contain spaces
+      // A password cannot contain spaces
       document.getElementById("reg-password-error").textContent = pass.length < 6 ? (valid = false, "Minimum of 6 characters") : /\s/.test(pass) ? (valid = false, "The password can't contain spaces") : "";
       document.getElementById("reg-password2-error").textContent = pass2 && pass === pass2 ? "" : (valid = false, "Passwords don't match");
       document.getElementById("reg-terms-error").textContent = terms ? "" : (valid = false, "You need to accept the terms");
       document.getElementById("reg-company-error").textContent = role === "employer" && !companyName ? (valid = false, "Please provide the company name") : "";
-      // Decision of 10/17/2026: an optional field with only spaces blocks the form
+      // An optional field with only spaces blocks the form
       const rawCity = document.getElementById(role === "employer" ? "reg-company-city" : "reg-city").value;
       document.getElementById("reg-city-error").textContent = "";
       document.getElementById("reg-company-city-error").textContent = "";

@@ -51,7 +51,7 @@ async function exec(sql, params = []) {
 }
 
 // ---------------------------------------------------------------------------
-// Passwords (D-10, 10/17/2026): stored as a scrypt hash, never as plain text.
+// Passwords: stored as a scrypt hash, never as plain text.
 // Format: scrypt$<salt hex>$<hash hex>
 // ---------------------------------------------------------------------------
 
@@ -86,12 +86,12 @@ async function ping() {
  * not needed. Safe to run on every start.
  */
 async function migrate() {
-  // D-10 (10/17/2026): hash every password still stored in plain text (demo accounts included)
+  // Hash every password still stored in plain text (demo accounts included)
   const plainRows = (await pool.query("SELECT id, password FROM users WHERE password NOT LIKE 'scrypt$%'")).rows;
   for (const row of plainRows) {
     await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hashPassword(row.password), row.id]);
   }
-  // D-05 (10/17/2026): reviews belong to an account id, not to a name
+  // Reviews belong to an account id, not to a name
   await pool.query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS "authorId" INTEGER');
   // the three example reviews go to the example candidates (same as 02-seed.sql)
   const seedReviews = [
@@ -340,11 +340,11 @@ async function reviewsByCompany(companyId) {
   return (await many(`SELECT * FROM reviews WHERE "companyId" = $1 ORDER BY "createdAt" DESC`, [toId(companyId)])).map(toReview);
 }
 async function reviewsByAuthorId(authorId) {
-  // D-05 (10/17/2026): by account id, so a rename or a namesake does not change the list
+  // By account id, so a rename or a namesake does not change the list
   return (await many(`SELECT * FROM reviews WHERE "authorId" = $1 ORDER BY "createdAt" DESC, id DESC`, [toId(authorId)])).map(toReview);
 }
 async function reviewsByAuthor(author) {
-  // Decision of 10/17/2026: newest first, like the other review lists
+  // Newest first, like the other review lists
   return (await many(`SELECT * FROM reviews WHERE author = $1 ORDER BY "createdAt" DESC, id DESC`, [author])).map(toReview);
 }
 async function allReviews() {

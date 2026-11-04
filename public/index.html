@@ -113,7 +113,7 @@
         </div>`;
 
       const applyBtn = a.querySelector(".btn-apply-quick");
-      // N-10 (10/17/2026): show the applied state as soon as the card loads
+      // Show the applied state as soon as the card loads
       if (applyBtn && appliedIds.has(j.id)) {
         applyBtn.textContent = "Already applied";
         applyBtn.disabled = true;
@@ -123,7 +123,7 @@
           ev.preventDefault();
           ev.stopPropagation();
           if (!currentUser) {
-            // N-11 (10/17/2026): the sign-in page shows the message, so the visitor can read it
+            // The sign-in page shows the message, so the visitor can read it
             location.href = "/pages/entrar.html?reason=apply";
             return;
           }

@@ -5,7 +5,7 @@ const Store = {
   CART_KEY: "vagalume_cart",
   SAVED_JOBS_KEY: "vagalume_saved_jobs",
 
-  // N-25 (10/17/2026): text typed by users (job and company fields) is shown as text, never as HTML.
+  // Text typed by users (job and company fields) is shown as text, never as HTML.
   escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -14,7 +14,7 @@ const Store = {
 
   // ---------- saved jobs (local bookmark flag, per browser) ----------
   // Each entry is { id, title, company }. Title and company are kept so a job that is
-  // deleted later can still be shown in "Saved jobs" (N-09, 10/17/2026). Older entries
+  // deleted later can still be shown in "Saved jobs". Older entries
   // saved as a plain id are still read; they simply have no title or company.
   getSavedJobEntries() {
     let raw;
@@ -46,7 +46,7 @@ const Store = {
 
   // ---------- applications ----------
   // Ids of the jobs the signed-in candidate has applied to, so the screens can show
-  // the applied state as soon as they load (N-10, 10/17/2026).
+  // the applied state as soon as they load.
   async getAppliedJobIds() {
     const { ok, body } = await QA.api("/api/applications/me");
     return ok ? new Set(body.data.map((a) => a.jobId)) : new Set();
@@ -118,7 +118,7 @@ const Store = {
     setTimeout(() => el.remove(), 4500);
   },
 
-  // Decision of 10/17/2026: the WebSocket connection (notifications, online counter,
+  // The WebSocket connection (notifications, online counter,
   // and help center chat) was removed.
 
   // ---------- header / footer ----------
