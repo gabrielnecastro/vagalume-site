@@ -66,6 +66,23 @@ UI, API, and data checks without breaking anything that matters.
 | Data checks | Confirm in the database what the screen cannot show |
 | Load and performance | Catalog and search endpoints, plus `/api/slow`, `/api/flaky`, and `/api/status/:code` |
 
+## QA documentation
+
+The [`docs/`](docs/README.md) folder has my QA work on the candidate area: a functional specification written from the source code, with every rule confirmed against the running app, on screen and through the API.
+
+| User stories | Business rules | Functional requirements | Screen vs. API divergences | New findings |
+| :---: | :---: | :---: | :---: | :---: |
+| **26** | **44** | **48** | **10** | **24** |
+
+**Start here:**
+
+- [Functional specification](docs/README.md): what the candidate area does, module by module, with acceptance criteria in Gherkin;
+- [Screen vs. API divergences](docs/divergences.md): where the screen enforced a rule and the API did not, plus the findings;
+- [Decisions and fixes](docs/decisions.md): what was decided about each point and what was fixed;
+- [Validation reports](docs/results/validation/README.md): the evidence of each validation round.
+
+The course marketplace, the employer area, and the admin panel are out of scope for now; they will be covered in a future round. The automated tests live in their own repositories.
+
 ## Getting started
 
 ### 1. Install the prerequisites
@@ -219,6 +236,7 @@ public/          the site (no access authentication)
     cursos.html, curso.html, carrinho.html, checkout-curso.html, pedido-curso-confirmado.html
     ajuda.html, termos.html, privacidade.html, qa-docs.html
   css/, js/, img/, img/courses/
+docs/            QA documentation (specification, divergences, decisions, validation reports)
 admin/           admin panel (lives outside /public — only served with HTTP Basic Auth)
 uploads/         files uploaded through the app (resumes, logos)
 screenshots/     images used in this README

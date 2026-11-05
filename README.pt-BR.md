@@ -66,6 +66,23 @@ completo, para você praticar verificações de UI, API e dados sem quebrar nada
 | Verificação de dados | Confirmar no banco o que a tela não consegue mostrar |
 | Carga e performance | Endpoints de catálogo e busca, além de `/api/slow`, `/api/flaky` e `/api/status/:code` |
 
+## Documentação de QA
+
+A pasta [`docs/`](docs/README.md) tem o meu trabalho de QA na área do candidato: uma especificação funcional escrita a partir do código-fonte, com cada regra confirmada no app rodando, na tela e pela API. A documentação está em inglês.
+
+| Histórias de usuário | Regras de negócio | Requisitos funcionais | Divergências tela vs. API | Novos achados |
+| :---: | :---: | :---: | :---: | :---: |
+| **26** | **44** | **48** | **10** | **24** |
+
+**Comece por aqui:**
+
+- [Especificação funcional](docs/README.md): o que a área do candidato faz, módulo por módulo, com critérios de aceite em Gherkin;
+- [Divergências tela vs. API](docs/divergences.md): onde a tela aplicava uma regra e a API não, mais os novos achados;
+- [Decisões e correções](docs/decisions.md): o que foi decidido sobre cada ponto e o que foi corrigido;
+- [Relatórios de validação](docs/results/validation/README.md): as evidências de cada rodada de validação.
+
+A loja de cursos, a área da empresa e o painel admin ficam fora do escopo por enquanto; serão cobertos numa próxima rodada. Os testes automatizados ficam em repositórios próprios.
+
 ## Como começar
 
 ### 1. Instale os pré-requisitos
@@ -219,6 +236,7 @@ public/          o site (sem autenticação de acesso)
     cursos.html, curso.html, carrinho.html, checkout-curso.html, pedido-curso-confirmado.html
     ajuda.html, termos.html, privacidade.html, qa-docs.html
   css/, js/, img/, img/courses/
+docs/            documentação de QA (especificação, divergências, decisões, relatórios de validação)
 admin/           painel admin (fica fora de /public — só é servido com HTTP Basic Auth)
 uploads/         arquivos enviados pelo app (currículos, logos)
 screenshots/     imagens usadas neste README

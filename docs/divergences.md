@@ -1,0 +1,68 @@
+# Screen vs. API divergences
+
+[← Specification index](README.md) · [Decisions and fixes](decisions.md)
+
+The code has 10 places where the screen enforces a rule that the API does not, or where the behavior contradicts the site's own text. They are good candidates for API test cases (bypassing the UI) and must be confirmed as intentional or as defects.
+
+| # | Rule | Screen | API / actual behavior |
+| --- | --- | --- | --- |
+| D-01 | BR-23 — a closed job does not accept applications | Blocks | `POST /api/jobs/:id/apply` does not check the status and accepts applications to a `closed` job. The FAQ says closed jobs do not accept applications. |
+| D-02 | BR-04 — minimum password of 6 characters on sign-up | Validates | `/api/auth/register` accepts a password of any length. |
+| D-03 | BR-05 and FR-03 — terms and email format on sign-up | Validates | `/api/auth/register` validates neither the email format nor the terms acceptance. |
+| D-04 | BR-31 — rating from 1 to 5 | Component limits it | `POST /api/jobs/:id/reviews` accepts any number other than 0 (e.g. 10 or -3), distorting the company's average. |
+| D-05 | BR-34 — delete only your own review | — | Ownership is checked by author name, not by id. Two candidates with the same name can delete each other's reviews, and changing the name in Account settings makes the candidate lose access to their own reviews. |
+| D-06 | BR-10 and BR-11 — "Keep me signed in" | Promises a long session | The cookie lasts 30 days, but the JWT expires in 7; after day 7 the session drops with `invalid_session`. |
+| D-07 | BR-36 — résumé file types | Accepts .pdf/.doc/.docx (the screen text says "as a PDF") | `POST /api/users/me/resume` accepts any file type up to 5 MB. On screen, submitting without a file gives no feedback. |
+| D-08 | BR-37 — experience dates | Free text | No validation of format or of an end date before the start date. The API has `PUT /api/experiences/:id`, but the screen offers no editing. |
+| D-09 | BR-35 — scope of experience and preferences | Dashboard for candidates only | The experience and preferences endpoints require sign-in, but not the candidate role; a company account can use them. |
+| D-10 | BR-42 — password change | No confirmation field | The new password is accepted without confirmation, and the password is stored in plain text in the database. |
+
+The decision on each one and the fixes are in [`decisions.md`](decisions.md).
+
+## Validation against the running app
+
+Nine of the 10 divergences were confirmed in Vagalume running on `localhost:3000`, with real API calls and checks on screen. D-06 was only partly confirmed at first; its cookie lifetime was confirmed with curl on 2026-10-17. The tests used accounts created for this purpose, and test data was removed whenever the API allowed it.
+
+| # | Result | Evidence |
+| --- | --- | --- |
+| D-01 | Confirmed | Job 14 (`closed`): the screen shows "Job closed" disabled and the notice; `POST /api/jobs/14/apply` returned 201 with status `received`. The FAQ says closed jobs do not accept applications. |
+| D-02 | Confirmed | `register` with password "1" returned 201, and signing in with that password returned 200. The screen shows "Minimum of 6 characters". |
+| D-03 | Confirmed | `register` with an email without @ and no terms field returned 201. The screen shows "Invalid email" and "You need to accept the terms". |
+| D-04 | Confirmed | Ratings 10, -3, and 999 returned 201; rating 0 returned 422. Company 1's average went from 4.5 to 203. The screen only offers 1 to 5 stars. Confirmed again in the Module 4 validation on 2026-10-17: ratings 6 and "abc" returned 201, and "abc" was saved as null, which counts as 0 in the average. Since the fix of 2026-10-17, 6, 10, -3, 4.5, "abc", and `true` return 422. |
+| D-05 | Confirmed | A second candidate with the same name listed and deleted (204) the first one's review. After changing the name, the author had an empty list and got 403 when deleting their own review. Confirmed again in the Module 4 validation on 2026-10-17 (204 when deleting the other candidate's review). Since the fix of 2026-10-17, the namesake got 403 and did not list the review, and the renamed author still listed and deleted it. |
+| D-06 | Partial | A token issued 6 days ago was accepted (200), and one issued 8 days ago was rejected (401 `invalid_session`). The 30-day cookie was confirmed only in the code: the browser does not expose the `Set-Cookie` header. After the fix, curl showed `Max-Age=604800` (7 days), and the token's `exp` is 604800 seconds after its `iat`. |
+| D-07 | Confirmed | A `.sh` file was accepted as a résumé (201) and saved to the profile. The screen restricts to `.pdf,.doc,.docx`; submitting without a file sends no request and shows no message. |
+| D-08 | Confirmed | Start "banana", end "2099-99", and an end before the start returned 201 and appear that way on screen. `PUT /api/experiences/:id` returned 200; the screen only has the "Remove" button. |
+| D-09 | Confirmed | The company account did `GET` on preferences (200) and `POST` on experience (201), while applying got 403. The preferences `PUT` was not run, to avoid leaving data on the demo account. Since the fix of 2026-10-17, the company got 403 on the 7 candidate routes, including the résumé upload. |
+| D-10 | Confirmed | The change was accepted with only the current and new passwords (the form has 2 fields); the old password started returning 401. Plain text: confirmed by the code and the seed (no hash); the database was not queried. Since the fixes of 2026-10-17, the change requires a confirmation, and a database query after a restart showed every password as a scrypt hash. |
+
+## New findings during validation
+
+| # | Finding | Evidence |
+| --- | --- | --- |
+| N-01 | An account created through the API with an invalid email can never sign in. Fixed on 2026-10-17. | Sign-up returned 201; signing in with the same credentials returned 422 `invalid_email_format`. |
+| N-02 | A résumé over 5 MB gets no size-limit error. Fixed on 2026-10-17. | Uploading 5 MB + 10 bytes returned 500 `internal_error` ("Something went wrong on our side") instead of a size-exceeded message. |
+| N-03 | The QA guide says applying while signed out returns 403, but the API returns 401 `not_authenticated`. Fixed on 2026-10-17. | `POST /api/jobs/1/apply` without a session returned 401 on 2026-10-17. By the decision of 2026-10-17, the API must follow the guide. |
+| N-04 | The job search in the API does not ignore spaces around the term (BR-13). The screen removes them before sending. Fixed on 2026-10-17. | `GET /api/jobs?q=%20qa%20` returned no jobs, while `q=qa` returned job 2 (Module 2 validation, 2026-10-17). |
+| N-05 | A job whose requirements contain only spaces shows an empty "Requirements" section instead of "Not specified." (BR-18). Fixed on 2026-10-17. | A test job created with requirements `"   "` returned 201 with the spaces saved, and its page showed the section blank (Module 2 validation, 2026-10-17). |
+| N-06 | Out-of-range or non-numeric pagination values in `GET /api/jobs` are corrected silently and inconsistently instead of being rejected (BR-16). Fixed on 2026-10-17. | `limit=101` became 100, `limit=-5` became 1, `limit=0` and `limit=abc` became 10, and `page` 0, -1, or `abc` became 1, all with 200 (Module 2 validation, 2026-10-17). |
+| N-07 | The "Saved jobs" list shows a closed job with an enabled "Apply now", and the application goes through (BR-23). Fixed on 2026-10-17. | Saved closed job 4: clicking "Apply now" on its card returned 201 and showed "Applied ✅" (Module 3 validation, 2026-10-17). |
+| N-08 | When every saved job no longer exists, the "Saved jobs" list is empty and "You haven't saved any jobs yet." does not appear (FR-23). Fixed on 2026-10-17. | With only job 9999 (does not exist) saved, the list was empty and the message stayed hidden (Module 3 validation, 2026-10-17). |
+| N-09 | The job page and the job cards show an enabled "Apply now" for a job the candidate has already applied to; the applied state appears only after the click (FR-19). Fixed on 2026-10-17. | After applying to job 5, reopening its page showed "Apply now" enabled; the click returned 409 and only then showed "You have already applied to this job". On the home page, the card of job 2 showed "Apply now" until the click (Module 3 validation, 2026-10-17). |
+| N-10 | The visitor's toast "Sign in with a candidate account to apply" appears on the previous page and disappears with the redirect, so it cannot be read (FR-16). Fixed on 2026-10-17. | On a card and on the job page, the toast was created and the page went to `/pages/entrar.html` at once; the sign-in page showed no message (Module 3 validation, 2026-10-17). |
+| N-11 | The review author and comment are inserted into the page as HTML, so a candidate can put markup or a script in front of every visitor (Module 4). Fixed on 2026-10-17. | A review with the comment `<b data-qa="m4-html">QA M4 bold</b>` returned 201 and was shown as bold text on the job page, the company profile, and the dashboard (Module 4 validation, 2026-10-17). |
+| N-12 | The API accepts a review comment with only spaces; the screen rejects it (BR-31). Fixed on 2026-10-17. | `POST /api/jobs/3/reviews` with the comment `"   "` returned 201, and the card showed an empty comment; on screen, the same comment showed "Rating and comment are required" (Module 4 validation, 2026-10-17). |
+| N-13 | Following, unfollowing, and deleting a review show the success toast even when the request fails (FR-26, FR-40); in the dashboard, "Remove" (experience) and "Unfollow" do the same (FR-36, FR-39). Fixed on 2026-10-17. | With the session ended behind the page, following showed "You're now following this company" while the button stayed "+ Follow company"; deleting showed "Review deleted" while the review stayed (Module 4 validation, 2026-10-17). |
+| N-14 | The company profile without `id` shows "Company not found", but the breadcrumb keeps "loading..." (FR-27). Fixed on 2026-10-17. | `/pages/empresa.html` showed the message with the breadcrumb "loading..."; `?id=999` showed "company not found" (Module 4 validation, 2026-10-17). |
+| N-15 | Review dates are shown in the viewer's time zone, so a review can show one day early (FR-31). Decided on 2026-10-17: intentional. Changed on 2026-11-04: dates are shown in Brazil time, whatever the viewer's time zone; fixed on 2026-11-04. | The seed review created on `2026-06-01T00:00:00Z` showed "5/31/2026" in Brazil, UTC−3 (Module 4 validation, 2026-10-17). |
+| N-16 | The company stars round the average to whole stars (FR-25). Fixed on 2026-10-17. | Nimbus Tech, "4.5 out of 5", showed 5 filled stars on the profile and on the job page (Module 4 validation, 2026-10-17). |
+| N-17 | The API accepts an experience whose company and role contain only spaces; the screen rejects it (BR-37). Fixed on 2026-10-17. | `POST /api/users/me/experiences` with company and role `"   "` returned 201, and the list showed "? — current" with an empty role and company; on screen, the same input showed "Company and role are required" (Module 5 validation, 2026-10-17). |
+| N-18 | The experience fields are inserted into the dashboard as HTML (Module 5). Fixed on 2026-10-17. | An experience with the company `<i data-qa="m5-html">QA M5 Html Co</i>` was shown in italics in "Work experience" (Module 5 validation, 2026-10-17). |
+| N-19 | The API saves a name with only spaces, although a blank name should be ignored (BR-41). Fixed on 2026-10-17. | `PATCH /api/users/me` with the name `"   "` returned 200 and saved it; the profile card showed no initials and a blank name, and the header showed no name (Module 5 validation, 2026-10-17). |
+| N-20 | The preferences API accepts values the screen does not offer, and a text salary causes a 500 (BR-39). Fixed on 2026-10-17. | `PUT /api/users/me/preferences` saved a salary of -500, availability "tomorrow", level "CEO", and area "Space" (200), and the screen showed those selects blank; the salary "abc" returned 500 "internal_error" (Module 5 validation, 2026-10-17). |
+| N-21 | Job and company text is inserted into the cards and lists as HTML, and the API saves the tags (FR-09, FR-24, FR-38; Module 2). Fixed on 2026-10-17. | A job titled `<b data-qa="html-job">QA Html Job</b>` from the company `<i data-qa="html-co">QA Html Co</i>` was shown in bold and italics on the home page, the company list and profile, Job activity, and Saved jobs; the job page already showed it as text (validation of 2026-10-17). |
+| N-22 | A request body that is not valid JSON returns 500 "internal_error" instead of a client error (Module 1). Fixed on 2026-10-17. | `curl.exe` in PowerShell sent `{email:candidato@vagalume.test,password:demo123}` to sign-in and got 500 "Something went wrong on our side. Please try again."; `{` on sign-up also returned 500 (validation of 2026-10-17). |
+| N-23 | When a job is closed after the page loads, "Apply now" shows "Already applied" although the API answered 409 `job_closed` (BR-23; Module 3). Fixed on 2026-10-17. | The screens checked only the 409 status, not the error code; found while reviewing the open points (validation of 2026-10-17). |
+| N-24 | The legacy address `/vaga-antiga/{id}` redirects any value without checking it, so `/vaga-antiga/abc` lands on a job page that shows "Job not found" instead of the 404 page (BR-19; Module 2). Fixed on 2026-11-04. | `/vaga-antiga/1curl.exe` went to `?id=1curl.exe` (validation of 2026-10-17); decided on 2026-11-04 as a defect. |
+
+Test data created during validation was removed on 2026-10-17, when the database was recreated.
