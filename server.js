@@ -147,7 +147,10 @@ async function jobWithCompany(job) {
 async function companyRating(companyId) {
   const items = await db.reviewsByCompany(companyId);
   if (!items.length) return { average: null, count: 0 };
-  const average = Number((items.reduce((s, r) => s + r.rating, 0) / items.length).toFixed(1));
+  // The average always rounds up to 1 decimal place (4.21 -> 4.3, 4.333 -> 4.4).
+  // toFixed(6) removes floating-point noise first, so an exact 4.3 stays 4.3.
+  const raw = items.reduce((s, r) => s + r.rating, 0) / items.length;
+  const average = Math.ceil(Number((raw * 10).toFixed(6))) / 10;
   return { average, count: items.length };
 }
 
@@ -469,6 +472,11 @@ app.post("/api/jobs/:id/reviews", requireAuth, requireRole("candidate"), ah(asyn
   // Only a whole number from 1 to 5, the same range as the stars on screen
   if (!Number.isInteger(Number(rating)) || Number(rating) < 1 || Number(rating) > 5 || typeof rating === "boolean") {
     return res.status(422).json({ error: "validation_error", field: "rating", message: "The rating must be a whole number from 1 to 5" });
+  }
+  // One review per candidate per job; after deleting it, the candidate can review the job again
+  const mine = await db.reviewsByAuthorId(req.currentUser.id);
+  if (mine.some((r) => r.jobId === jobId)) {
+    return res.status(409).json({ error: "already_reviewed", message: "You have already reviewed this job" });
   }
   const review = await db.insertReview({
     jobId,

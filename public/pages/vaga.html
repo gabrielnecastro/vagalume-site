@@ -78,6 +78,7 @@
             <span id="review-error" class="badge err hidden" data-testid="review-error"></span>
           </form>
         </div>
+        <p id="review-already" class="muted hidden" data-testid="review-already">You have already reviewed this job</p>
         <p id="review-login-hint" class="muted hidden" data-testid="review-login-hint">
           <a href="/pages/entrar.html">Sign in with a candidate account</a> to review this job.
         </p>
@@ -174,7 +175,7 @@
       el.innerHTML = `
         <div class="pill-row" style="justify-content:space-between">
           <strong></strong>
-          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "America/Sao_Paulo" })}</span>
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString(undefined, { timeZone: "America/Sao_Paulo" })}</span>
         </div>
         <star-rating readonly value="${r.rating}"></star-rating>
         ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}
@@ -194,7 +195,10 @@
       document.getElementById("no-reviews").classList.toggle("hidden", body.data.length > 0);
 
       const canReview = currentUser && currentUser.role === "candidate";
-      document.getElementById("review-form-wrap").classList.toggle("hidden", !canReview);
+      // One review per candidate per job: whoever already reviewed sees the message instead of the form
+      const alreadyReviewed = !!canReview && body.data.some((r) => r.authorId === currentUser.id);
+      document.getElementById("review-form-wrap").classList.toggle("hidden", !canReview || alreadyReviewed);
+      document.getElementById("review-already").classList.toggle("hidden", !alreadyReviewed);
       document.getElementById("review-login-hint").classList.toggle("hidden", !!canReview);
     }
 
@@ -246,6 +250,11 @@
         method: "POST",
         body: JSON.stringify({ rating, comment, wasEmployee }),
       });
+      if (!ok && body && body.error === "already_reviewed") {
+        // reviewed in another tab after this page loaded
+        await loadReviews();
+        return;
+      }
       if (!ok) {
         errEl.textContent = (body && body.message) || "Couldn't post the review";
         errEl.classList.remove("hidden");

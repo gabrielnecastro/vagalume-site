@@ -98,7 +98,7 @@
         <!-- Job preferences -->
         <section class="card panel-section hidden" id="section-preferences" data-testid="section-preferences">
           <h2>Job preferences</h2>
-          <p class="muted">We only use this to simulate recommendations — nothing is sent to companies.</p>
+          <p class="muted">Your preferences are saved to your profile. They are not shared with companies.</p>
           <form id="preferences-form">
             <label for="pref-area">Area of interest</label>
             <select id="pref-area" data-testid="pref-area">
@@ -431,7 +431,7 @@
           <a href="/pages/vaga.html?id=${j.id}"><strong>${Store.escapeHtml(j.title)}</strong></a>
           <span class="badge ${a.status === "rejected" ? "err" : a.status === "approved" ? "ok" : "warn"}" data-testid="application-status">${STATUS_LABEL[a.status] || a.status}</span>
         </div>
-        <p class="muted">${Store.escapeHtml(j.company ? j.company.name : "")} · applied on ${new Date(a.appliedAt).toLocaleDateString("en-US", { timeZone: "America/Sao_Paulo" })}</p>`;
+        <p class="muted">${Store.escapeHtml(j.company ? j.company.name : "")} · applied on ${new Date(a.appliedAt).toLocaleDateString(undefined, { timeZone: "America/Sao_Paulo" })}</p>`;
       return el;
     }
     async function loadApplications() {
@@ -600,7 +600,7 @@
           <span class="category">${c.category}</span>
           <div class="title">${c.title}</div>
           <div class="instructor">${c.instructor}</div>
-          <span class="badge ok mt-8" style="align-self:flex-start">Purchased on ${new Date(e.purchasedAt).toLocaleDateString("en-US", { timeZone: "America/Sao_Paulo" })}</span>
+          <span class="badge ok mt-8" style="align-self:flex-start">Purchased on ${new Date(e.purchasedAt).toLocaleDateString(undefined, { timeZone: "America/Sao_Paulo" })}</span>
         </div>`;
       return wrap;
     }

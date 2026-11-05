@@ -359,7 +359,7 @@
       el.innerHTML = `
         <div class="pill-row" style="justify-content:space-between">
           <strong>${r.author}</strong>
-          <span class="muted">${new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "America/Sao_Paulo" })}</span>
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString(undefined, { timeZone: "America/Sao_Paulo" })}</span>
         </div>
         <star-rating readonly value="${r.rating}"></star-rating>
         ${r.wasEmployee ? '<span class="badge ok">Former employee</span>' : ""}

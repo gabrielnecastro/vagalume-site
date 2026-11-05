@@ -60,7 +60,7 @@
           <tr><td>Rate limit (429)</td><td>"Test webhook" in /admin (5 every 10s)</td></tr>
           <tr><td>Redirect (302)</td><td><code>/vaga-antiga/1</code> → redirects to the current job; an id that is not a whole number (e.g. <code>/vaga-antiga/abc</code>) shows the 404 page</td></tr>
           <tr><td>404 page</td><td>Any nonexistent URL</td></tr>
-          <tr><td>Dates in Brazil time</td><td>Review, application, and purchase dates are shown in Brazil time (America/Sao_Paulo), whatever the time zone of the computer</td></tr>
+          <tr><td>Dates in Brazil time</td><td>Review, application, and purchase dates are shown in Brazil time (America/Sao_Paulo), whatever the time zone of the computer, in the date format of the browser's language (e.g. 5/31/2026 in English (US), 31/05/2026 in Portuguese (Brazil))</td></tr>
           <tr><td>Cookie consent / localStorage</td><td>Cookie banner (footer) + theme preference</td></tr>
           <tr><td>Native HTTP Basic Auth</td><td><code>/admin</code> or <code>/basic-auth</code></td></tr>
           <tr><td>Not signed in (401)</td><td>Applying, or any other action that requires an account, while logged out</td></tr>
@@ -82,7 +82,7 @@
           <tr><td>POST</td><td>/api/auth/logout</td><td>logout (removes the session cookie)</td></tr>
           <tr><td>GET</td><td>/api/auth/me</td><td>protected by cookie</td></tr>
           <tr><td>PATCH</td><td>/api/users/me</td><td>updates name, city, and password</td></tr>
-          <tr><td>GET</td><td>/api/companies</td><td>lists companies with aggregate rating</td></tr>
+          <tr><td>GET</td><td>/api/companies</td><td>lists companies with aggregate rating (average always rounded up to 1 decimal place, e.g. 4.21 → 4.3)</td></tr>
           <tr><td>GET/PUT</td><td>/api/companies/:id</td><td>PUT restricted to the owner (employer)</td></tr>
           <tr><td>GET</td><td>/api/companies/:id/jobs</td><td>every job of a company, in any status</td></tr>
           <tr><td>GET</td><td>/api/companies/:id/reviews</td><td>reviews of a company's jobs</td></tr>
@@ -90,7 +90,7 @@
           <tr><td>GET</td><td>/api/users/me/followed-companies</td><td>companies the logged-in user follows</td></tr>
           <tr><td>GET/POST</td><td>/api/jobs</td><td>list (pagination, search, filters, sorting) and create (employer); requirements with only spaces return 422</td></tr>
           <tr><td>GET/PUT/DELETE</td><td>/api/jobs/:id</td><td>job detail; edit and delete restricted to the owner (employer)</td></tr>
-          <tr><td>GET/POST</td><td>/api/jobs/:id/reviews</td><td>POST requires the "candidate" role; rating must be a whole number from 1 to 5</td></tr>
+          <tr><td>GET/POST</td><td>/api/jobs/:id/reviews</td><td>POST requires the "candidate" role; rating must be a whole number from 1 to 5; one review per candidate per job (409 <code>already_reviewed</code>)</td></tr>
           <tr><td>GET</td><td>/api/users/me/reviews</td><td>reviews written by the logged-in user (newest first)</td></tr>
           <tr><td>DELETE</td><td>/api/reviews/:id</td><td>only the author can delete it</td></tr>
           <tr><td>POST</td><td>/api/jobs/:id/apply</td><td>candidate only; 401 when logged out; 409 if already applied or the job is closed (<code>job_closed</code>)</td></tr>

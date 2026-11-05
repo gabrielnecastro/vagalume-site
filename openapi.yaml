@@ -449,7 +449,7 @@ paths:
     post:
       tags: [Reviews]
       summary: Review a job and its company (candidate)
-      description: HTML tags are removed from the comment. The author is the signed-in account.
+      description: HTML tags are removed from the comment. The author is the signed-in account. One review per candidate per job (409 `already_reviewed`); after deleting it, the candidate can review the job again.
       security: [{ cookieAuth: [] }]
       requestBody:
         required: true
@@ -473,6 +473,12 @@ paths:
                   data: { $ref: "#/components/schemas/Review" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: "`already_reviewed`: the candidate has already reviewed this job"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { error: already_reviewed, message: You have already reviewed this job }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
@@ -1398,7 +1404,7 @@ components:
             rating:
               type: object
               properties:
-                average: { type: number, nullable: true, description: One decimal place; null without reviews, example: 4.5 }
+                average: { type: number, nullable: true, description: One decimal place, always rounded up (4.21 → 4.3); null without reviews, example: 4.5 }
                 count: { type: integer }
     CompanyInput:
       type: object
