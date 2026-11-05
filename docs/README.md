@@ -97,7 +97,7 @@ The requirements describe only the current expected behavior. The evidence of ea
 
 ## Online copy
 
-This repository is the only source of the specification. The online document "Vagalume — Functional Specification: Candidate Area" is a read-only copy, updated at the end of each validation round. When the two differ, this repository is right.
+This repository is the only source of the specification. The online document on claude.ai is a read-only copy, updated at the end of each validation round. When the two differ, this repository is right.
 
 ## Identifiers
 
