@@ -1,6 +1,6 @@
 # Vagalume — QA Documentation: Candidate Area
 
-2026-10-08, updated on 2026-11-04 · Gabriel Nunes e Castro
+2026-10-08, updated on 2026-11-06 · Gabriel Nunes e Castro
 
 [← Site README](../README.md)
 
@@ -91,6 +91,10 @@ The requirements describe only the current expected behavior. The evidence of ea
 
 [`divergences.md`](divergences.md) lists the 10 places where the screen enforces a rule that the API does not (D-01 to D-10), the validation of each one against the running app, and the new findings (N-01 to N-24).
 
+## Test strategy (summary)
+
+[`test-strategy.md`](test-strategy.md) sets what to test first and how deep, from a risk analysis per rule (Impact × Probability, each High, Medium, or Low, with the probability based on the divergences and findings of each rule). Each rule gets its layers (API, integration, E2E, or manual) and whether it is part of the smoke suite.
+
 ## Decisions and fixes (summary)
 
 [`decisions.md`](decisions.md) records what the product owner decided about each divergence and finding, and the fixes of each day. Expected behavior follows the QA guide (`/pages/qa-docs.html`), the official source.
@@ -122,7 +126,8 @@ docs/
 │   └── global-rules.md    rules that apply to every module
 ├── results/validation/    evidence and history of each validation round
 ├── divergences.md         screen vs. API divergences and findings
-└── decisions.md           decisions and fixes of each day
+├── decisions.md           decisions and fixes of each day
+└── test-strategy.md       risk analysis and test plan per rule
 ```
 
-The automated tests (Playwright, Cypress) live in their own repositories. Next step: a test strategy with a risk analysis, to set what to check first and why.
+The automated tests (Playwright, Cypress) live in their own repositories.

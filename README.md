@@ -79,7 +79,8 @@ The [`docs/`](docs/README.md) folder has my QA work on the candidate area: a fun
 - [Functional specification](docs/README.md): what the candidate area does, module by module, with acceptance criteria in Gherkin;
 - [Screen vs. API divergences](docs/divergences.md): where the screen enforced a rule and the API did not, plus the findings;
 - [Decisions and fixes](docs/decisions.md): what was decided about each point and what was fixed;
-- [Validation reports](docs/results/validation/README.md): the evidence of each validation round.
+- [Validation reports](docs/results/validation/README.md): the evidence of each validation round;
+- [Test strategy](docs/test-strategy.md): what to test first and how deep, from a risk analysis per rule.
 
 The course marketplace, the employer area, and the admin panel are out of scope for now; they will be covered in a future round. The automated tests live in their own repositories.
 
@@ -236,7 +237,7 @@ public/          the site (no access authentication)
     cursos.html, curso.html, carrinho.html, checkout-curso.html, pedido-curso-confirmado.html
     ajuda.html, termos.html, privacidade.html, qa-docs.html
   css/, js/, img/, img/courses/
-docs/            QA documentation (specification, divergences, decisions, validation reports)
+docs/            QA documentation (specification, divergences, decisions, validation reports, test strategy)
 admin/           admin panel (lives outside /public — only served with HTTP Basic Auth)
 uploads/         files uploaded through the app (resumes, logos)
 screenshots/     images used in this README

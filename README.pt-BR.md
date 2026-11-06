@@ -79,7 +79,8 @@ A pasta [`docs/`](docs/README.md) tem o meu trabalho de QA na área do candidato
 - [Especificação funcional](docs/README.md): o que a área do candidato faz, módulo por módulo, com critérios de aceite em Gherkin;
 - [Divergências tela vs. API](docs/divergences.md): onde a tela aplicava uma regra e a API não, mais os novos achados;
 - [Decisões e correções](docs/decisions.md): o que foi decidido sobre cada ponto e o que foi corrigido;
-- [Relatórios de validação](docs/results/validation/README.md): as evidências de cada rodada de validação.
+- [Relatórios de validação](docs/results/validation/README.md): as evidências de cada rodada de validação;
+- [Estratégia de testes](docs/test-strategy.md): o que testar primeiro e com quanta profundidade, a partir de uma análise de risco por regra.
 
 A loja de cursos, a área da empresa e o painel admin ficam fora do escopo por enquanto; serão cobertos numa próxima rodada. Os testes automatizados ficam em repositórios próprios.
 
@@ -236,7 +237,7 @@ public/          o site (sem autenticação de acesso)
     cursos.html, curso.html, carrinho.html, checkout-curso.html, pedido-curso-confirmado.html
     ajuda.html, termos.html, privacidade.html, qa-docs.html
   css/, js/, img/, img/courses/
-docs/            documentação de QA (especificação, divergências, decisões, relatórios de validação)
+docs/            documentação de QA (especificação, divergências, decisões, relatórios de validação, estratégia de testes)
 admin/           painel admin (fica fora de /public — só é servido com HTTP Basic Auth)
 uploads/         arquivos enviados pelo app (currículos, logos)
 screenshots/     imagens usadas neste README
